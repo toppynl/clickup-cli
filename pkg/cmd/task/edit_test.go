@@ -20,5 +20,5 @@ func TestNewCmdEdit_Flags(t *testing.T) {
 	assert.NotNil(t, cmd.Flags().Lookup("start-date"))
 	assert.NotNil(t, cmd.Flags().Lookup("time-estimate"))
 	assert.NotNil(t, cmd.Flags().Lookup("points"))
-	assert.Equal(t, "edit [<task-id>]", cmd.Use)
+	assert.Equal(t, "edit [<task-id>...]", cmd.Use)
 }

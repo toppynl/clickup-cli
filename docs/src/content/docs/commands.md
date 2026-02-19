@@ -208,6 +208,42 @@ clickup task edit CU-abc123 --type 1
 | `--json` | Output updated task as JSON |
 | `--jq EXPR` | Filter JSON output with a jq expression |
 
+### `task list-add <TASK-ID>... --list-id ID`
+
+Add one or more tasks to an additional ClickUp list. This does not move the task — it adds a secondary list membership so the task appears in multiple lists.
+
+```sh
+# Add a single task to a sprint list
+clickup task list-add 86abc123 --list-id 901613544162
+
+# Add multiple tasks to the same list
+clickup task list-add 86abc1 86abc2 86abc3 --list-id 901613544162
+```
+
+| Flag | Description |
+|------|-------------|
+| `--list-id ID` | Target list ID (required) |
+| `--json` | Output as JSON |
+| `--jq EXPR` | Filter JSON output with a jq expression |
+
+### `task list-remove <TASK-ID>... --list-id ID`
+
+Remove one or more tasks from a ClickUp list. The task must belong to at least one other list — you cannot remove a task from its only list.
+
+```sh
+# Remove a single task from a list
+clickup task list-remove 86abc123 --list-id 901613544162
+
+# Remove multiple tasks from the same list
+clickup task list-remove 86abc1 86abc2 86abc3 --list-id 901613544162
+```
+
+| Flag | Description |
+|------|-------------|
+| `--list-id ID` | List ID to remove from (required) |
+| `--json` | Output as JSON |
+| `--jq EXPR` | Filter JSON output with a jq expression |
+
 ### `task search <query>`
 
 Search tasks by name with fuzzy matching and optional comment search. The `<query>` argument matches against task names as a case-insensitive substring. To search by task ID, pass the full ID (e.g., `CU-abc123`).
@@ -526,6 +562,30 @@ clickup status set "done" CU-abc123
 # Fuzzy matching works too
 clickup status set "prog" CU-abc123
 ```
+
+### `status add <NAME>`
+
+Add a new custom status to a ClickUp space. The new status is inserted before the final "Closed"/"done" status in the workflow ordering. Since statuses affect all tasks in a space, confirmation is required unless `-y` is passed.
+
+```sh
+# Add a "done" status
+clickup status add "done"
+
+# Add with a specific color
+clickup status add "QA Review" --color "#7C4DFF"
+
+# Skip confirmation
+clickup status add "done" -y
+
+# Add to a specific space
+clickup status add "done" --space 12345
+```
+
+| Flag | Description |
+|------|-------------|
+| `--color HEX` | Status color hex (e.g. "#7C4DFF"); omit to let ClickUp pick |
+| `--space ID` | Space ID (defaults to configured space) |
+| `-y`, `--yes` | Skip confirmation prompt |
 
 ### `status list`
 

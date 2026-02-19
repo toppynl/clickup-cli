@@ -39,7 +39,7 @@ clickup inbox [flags]
   -h, --help              help for inbox
       --jq string         Filter JSON output using a jq expression
       --json              Output JSON
-      --limit int         Maximum number of tasks to scan for mentions (default 50)
+      --limit int         Maximum number of tasks to scan for mentions (default 200)
       --template string   Format JSON output using a Go template
 ```
 

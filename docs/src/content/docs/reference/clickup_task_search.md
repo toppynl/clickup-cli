@@ -5,15 +5,17 @@ description: "Auto-generated reference for clickup task search"
 
 ## clickup task search
 
-Search tasks by name
+Search tasks by name and description
 
 ### Synopsis
 
-Search ClickUp tasks across the workspace by name.
+Search ClickUp tasks across the workspace by name and description.
 
-Returns tasks whose names match the search query using substring and fuzzy
-matching. Exact substring matches are shown first, followed by fuzzy matches
-sorted by relevance.
+Returns tasks whose names or descriptions match the search query. Matching
+priority: name substring > name fuzzy > description substring. When no
+--space or --folder is specified, search uses progressive drill-down:
+sprint tasks first, then your assigned tasks, then configured space, then
+full workspace.
 
 Use --space and --folder to narrow the search scope for faster results.
 Use --comments to also search through task comments (slower).

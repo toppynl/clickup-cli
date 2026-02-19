@@ -12,7 +12,7 @@ import (
 )
 
 type editOptions struct {
-	taskID              string
+	taskIDs             []string
 	name                string
 	description         string
 	markdownDescription string
@@ -41,38 +41,42 @@ func NewCmdEdit(f *cmdutil.Factory) *cobra.Command {
 	opts := &editOptions{}
 
 	cmd := &cobra.Command{
-		Use:   "edit [<task-id>]",
+		Use:   "edit [<task-id>...]",
 		Short: "Edit a ClickUp task",
-		Long: `Edit an existing ClickUp task.
+		Long: `Edit one or more existing ClickUp tasks.
 
 If no task ID is provided, the command attempts to auto-detect the task ID
 from the current git branch name. At least one field flag must be provided.
 
+Multiple task IDs can be provided to apply the same changes to all tasks.
+Each task is updated independently; errors on individual tasks are reported
+but do not stop the batch.
+
 Custom fields can be set with --field "Name=value" (repeatable) and cleared
 with --clear-field "Name" (repeatable). Use 'clickup field list' to discover
 available custom fields and their types.`,
-		Example: `  # Update status and priority
+		Example: `  # Update status and priority (auto-detects task from git branch)
   clickup task edit --status "in progress" --priority 2
 
-  # Edit a specific task with a custom field
+  # Edit a specific task
   clickup task edit CU-abc123 --field "Environment=production"
+  clickup task edit CU-abc123 --due-date 2025-03-01 --time-estimate 4h
+  clickup task edit CU-abc123 --clear-field "Environment"
 
-  # Set due date and time estimate
-  clickup task edit --due-date 2025-03-01 --time-estimate 4h
+  # Bulk edit: close multiple subtasks at once
+  clickup task edit 86abc1 86abc2 86abc3 --status "Closed"
 
-  # Clear a custom field
-  clickup task edit CU-abc123 --clear-field "Environment"`,
-		Args:              cobra.MaximumNArgs(1),
+  # Bulk edit: set due date on many tasks
+  clickup task edit 86abc1 86abc2 86abc3 --due-date 2026-03-01`,
+		Args:              cobra.ArbitraryArgs,
 		PersistentPreRunE: cmdutil.NeedsAuth(f),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) > 0 {
-				opts.taskID = args[0]
-			}
+			opts.taskIDs = args
 			return runEdit(f, opts, cmd)
 		},
 	}
 
-	cmd.Flags().StringVar(&opts.name, "name", "", "New task name")
+	cmd.Flags().StringVar(&opts.name, "name", "", "New task name (convention: [Type] Context — Action (Platform))")
 	cmd.Flags().StringVar(&opts.description, "description", "", "New task description")
 	cmd.Flags().StringVar(&opts.markdownDescription, "markdown-description", "", "New task description in markdown")
 	cmd.Flags().StringVar(&opts.status, "status", "", "New task status")
@@ -102,11 +106,9 @@ func runEdit(f *cmdutil.Factory, opts *editOptions, cmd *cobra.Command) error {
 	ios := f.IOStreams
 	cs := ios.ColorScheme()
 
-	taskID := opts.taskID
-	isCustomID := false
-
-	// Auto-detect task ID from git branch if not provided.
-	if taskID == "" {
+	// Resolve task IDs: auto-detect from git branch if none provided.
+	taskIDs := opts.taskIDs
+	if len(taskIDs) == 0 {
 		gitCtx, err := f.GitContext()
 		if err != nil {
 			return fmt.Errorf("could not detect task ID: %w\n\n%s", err, git.BranchNamingSuggestion(""))
@@ -115,12 +117,11 @@ func runEdit(f *cmdutil.Factory, opts *editOptions, cmd *cobra.Command) error {
 			fmt.Fprintln(ios.ErrOut, cs.Yellow(git.BranchNamingSuggestion(gitCtx.Branch)))
 			return &cmdutil.SilentError{Err: fmt.Errorf("no task ID found in branch")}
 		}
-		taskID = gitCtx.TaskID.ID
-		isCustomID = gitCtx.TaskID.IsCustomID
-	} else {
-		parsed := git.ParseTaskID(taskID)
-		taskID = parsed.ID
-		isCustomID = parsed.IsCustomID
+		taskIDs = []string{gitCtx.TaskID.ID}
+		if gitCtx.TaskID.IsCustomID {
+			// Mark that this single auto-detected ID is custom.
+			taskIDs[0] = gitCtx.TaskID.ID
+		}
 	}
 
 	// Ensure at least one field is being updated.
@@ -152,13 +153,7 @@ func runEdit(f *cmdutil.Factory, opts *editOptions, cmd *cobra.Command) error {
 		return err
 	}
 
-	var getOpts *clickup.GetTaskOptions
-	if isCustomID {
-		getOpts = &clickup.GetTaskOptions{
-			CustomTaskIDs: true,
-		}
-	}
-
+	// Build the update request once (shared across all tasks).
 	updateReq := &clickup.TaskUpdateRequest{}
 
 	if cmd.Flags().Changed("name") {
@@ -168,22 +163,20 @@ func runEdit(f *cmdutil.Factory, opts *editOptions, cmd *cobra.Command) error {
 		updateReq.Description = opts.description
 	}
 
-	// Fetch the task once if we need it for status or tag validation.
+	// Validate status and tags against the first task's space (shared across batch).
 	var spaceID string
-	var currentTagNames []string
 	if cmd.Flags().Changed("status") || cmd.Flags().Changed("tags") {
-		fetchTask, _, fetchErr := client.Clickup.Tasks.GetTask(context.Background(), taskID, getOpts)
+		parsed := git.ParseTaskID(taskIDs[0])
+		var getOpts *clickup.GetTaskOptions
+		if parsed.IsCustomID {
+			getOpts = &clickup.GetTaskOptions{CustomTaskIDs: true}
+		}
+		fetchTask, _, fetchErr := client.Clickup.Tasks.GetTask(context.Background(), parsed.ID, getOpts)
 		if fetchErr == nil && fetchTask.Space.ID != "" {
 			spaceID = fetchTask.Space.ID
 		}
-		if fetchErr == nil && cmd.Flags().Changed("tags") {
-			for _, tag := range fetchTask.Tags {
-				currentTagNames = append(currentTagNames, tag.Name)
-			}
-		}
 	}
 
-	// markdown-description is handled via raw API after the main update call.
 	if cmd.Flags().Changed("status") {
 		if spaceID != "" {
 			validated, valErr := cmdutil.ValidateStatus(client, spaceID, opts.status, ios.ErrOut)
@@ -208,8 +201,6 @@ func runEdit(f *cmdutil.Factory, opts *editOptions, cmd *cobra.Command) error {
 		if spaceID != "" {
 			opts.tags = cmdutil.ValidateTags(client, spaceID, opts.tags, ios.ErrOut)
 		}
-		// Tags are applied via dedicated API calls after task update (below),
-		// not via the request body which ClickUp ignores.
 	}
 
 	if cmd.Flags().Changed("due-date") {
@@ -267,93 +258,175 @@ func runEdit(f *cmdutil.Factory, opts *editOptions, cmd *cobra.Command) error {
 		updateReq.CustomItemId = opts.customItemID
 	}
 
-	task, _, err := client.Clickup.Tasks.UpdateTask(context.Background(), taskID, getOpts, updateReq)
-	if err != nil {
-		return fmt.Errorf("failed to update task %s: %w", taskID, err)
-	}
-
-	// Set tags via dedicated API calls (replaces existing tags with desired set).
-	if cmd.Flags().Changed("tags") {
-		if err := setTaskTags(client, task.ID, currentTagNames, opts.tags); err != nil {
-			return fmt.Errorf("task updated but failed to set tags: %w", err)
-		}
-	}
-
-	// Set points via raw API call if specified (not supported by go-clickup library).
-	if cmd.Flags().Changed("points") {
-		if err := setTaskPoints(client, task.ID, opts.points); err != nil {
-			return fmt.Errorf("task updated but failed to set points: %w", err)
-		}
-	}
-
-	// Set markdown description via raw API call (not supported by go-clickup library).
-	if cmd.Flags().Changed("markdown-description") {
-		if err := setMarkdownDescription(client, task.ID, opts.markdownDescription); err != nil {
-			return fmt.Errorf("task updated but failed to set markdown description: %w", err)
-		}
-	}
-
-	// Handle custom field set/clear operations.
+	// Validate --field format before the loop.
 	if cmd.Flags().Changed("field") {
 		for _, fieldSpec := range opts.fields {
 			parts := strings.SplitN(fieldSpec, "=", 2)
 			if len(parts) != 2 {
 				return fmt.Errorf("invalid --field format %q (use \"Name=value\")", fieldSpec)
 			}
-			fieldName, fieldValue := parts[0], parts[1]
-
-			cf := resolveFieldByName(task.CustomFields, fieldName)
-			if cf == nil {
-				return fmt.Errorf("custom field %q not found (available: %s)", fieldName, customFieldNames(task.CustomFields))
-			}
-
-			parsed, err := parseFieldValue(cf, fieldValue)
-			if err != nil {
-				return err
-			}
-
-			_, err = client.Clickup.CustomFields.SetCustomFieldValue(context.Background(), task.ID, cf.ID, map[string]interface{}{"value": parsed}, nil)
-			if err != nil {
-				return fmt.Errorf("failed to set custom field %q: %w", fieldName, err)
-			}
 		}
 	}
 
-	if cmd.Flags().Changed("clear-field") {
-		for _, fieldName := range opts.clearFields {
-			cf := resolveFieldByName(task.CustomFields, fieldName)
-			if cf == nil {
-				return fmt.Errorf("custom field %q not found (available: %s)", fieldName, customFieldNames(task.CustomFields))
-			}
+	bulk := len(taskIDs) > 1
+	total := len(taskIDs)
+	var updated int
+	var results []*clickup.Task
 
-			_, err = client.Clickup.CustomFields.RemoveCustomFieldValue(context.Background(), task.ID, cf.ID, nil)
-			if err != nil {
-				return fmt.Errorf("failed to clear custom field %q: %w", fieldName, err)
+	for i, rawID := range taskIDs {
+		parsed := git.ParseTaskID(rawID)
+		taskID := parsed.ID
+		var getOpts *clickup.GetTaskOptions
+		if parsed.IsCustomID {
+			getOpts = &clickup.GetTaskOptions{CustomTaskIDs: true}
+		}
+
+		task, _, err := client.Clickup.Tasks.UpdateTask(context.Background(), taskID, getOpts, updateReq)
+		if err != nil {
+			if bulk {
+				fmt.Fprintf(ios.ErrOut, "%s (%d/%d) %s: %v\n", cs.Yellow("!"), i+1, total, rawID, err)
+				continue
+			}
+			return fmt.Errorf("failed to update task %s: %w", rawID, err)
+		}
+
+		// Set tags via dedicated API calls (replaces existing tags with desired set).
+		if cmd.Flags().Changed("tags") {
+			var currentTagNames []string
+			for _, tag := range task.Tags {
+				currentTagNames = append(currentTagNames, tag.Name)
+			}
+			if err := setTaskTags(client, task.ID, currentTagNames, opts.tags); err != nil {
+				if bulk {
+					fmt.Fprintf(ios.ErrOut, "%s (%d/%d) %s: updated but failed to set tags: %v\n", cs.Yellow("!"), i+1, total, rawID, err)
+				} else {
+					return fmt.Errorf("task updated but failed to set tags: %w", err)
+				}
 			}
 		}
-	}
 
-	id := task.ID
-	if task.CustomID != "" {
-		id = task.CustomID
+		// Set points via raw API call.
+		if cmd.Flags().Changed("points") {
+			if err := setTaskPoints(client, task.ID, opts.points); err != nil {
+				if bulk {
+					fmt.Fprintf(ios.ErrOut, "%s (%d/%d) %s: updated but failed to set points: %v\n", cs.Yellow("!"), i+1, total, rawID, err)
+				} else {
+					return fmt.Errorf("task updated but failed to set points: %w", err)
+				}
+			}
+		}
+
+		// Set markdown description via raw API call.
+		if cmd.Flags().Changed("markdown-description") {
+			if err := setMarkdownDescription(client, task.ID, opts.markdownDescription); err != nil {
+				if bulk {
+					fmt.Fprintf(ios.ErrOut, "%s (%d/%d) %s: updated but failed to set markdown description: %v\n", cs.Yellow("!"), i+1, total, rawID, err)
+				} else {
+					return fmt.Errorf("task updated but failed to set markdown description: %w", err)
+				}
+			}
+		}
+
+		// Handle custom field set/clear operations.
+		if cmd.Flags().Changed("field") {
+			for _, fieldSpec := range opts.fields {
+				parts := strings.SplitN(fieldSpec, "=", 2)
+				fieldName, fieldValue := parts[0], parts[1]
+
+				cf := resolveFieldByName(task.CustomFields, fieldName)
+				if cf == nil {
+					if bulk {
+						fmt.Fprintf(ios.ErrOut, "%s (%d/%d) %s: custom field %q not found\n", cs.Yellow("!"), i+1, total, rawID, fieldName)
+					} else {
+						return fmt.Errorf("custom field %q not found (available: %s)", fieldName, customFieldNames(task.CustomFields))
+					}
+					continue
+				}
+
+				parsed, err := parseFieldValue(cf, fieldValue)
+				if err != nil {
+					if bulk {
+						fmt.Fprintf(ios.ErrOut, "%s (%d/%d) %s: custom field %q: %v\n", cs.Yellow("!"), i+1, total, rawID, fieldName, err)
+					} else {
+						return err
+					}
+					continue
+				}
+
+				_, err = client.Clickup.CustomFields.SetCustomFieldValue(context.Background(), task.ID, cf.ID, map[string]interface{}{"value": parsed}, nil)
+				if err != nil {
+					if bulk {
+						fmt.Fprintf(ios.ErrOut, "%s (%d/%d) %s: failed to set custom field %q: %v\n", cs.Yellow("!"), i+1, total, rawID, fieldName, err)
+					} else {
+						return fmt.Errorf("failed to set custom field %q: %w", fieldName, err)
+					}
+				}
+			}
+		}
+
+		if cmd.Flags().Changed("clear-field") {
+			for _, fieldName := range opts.clearFields {
+				cf := resolveFieldByName(task.CustomFields, fieldName)
+				if cf == nil {
+					if bulk {
+						fmt.Fprintf(ios.ErrOut, "%s (%d/%d) %s: custom field %q not found\n", cs.Yellow("!"), i+1, total, rawID, fieldName)
+					} else {
+						return fmt.Errorf("custom field %q not found (available: %s)", fieldName, customFieldNames(task.CustomFields))
+					}
+					continue
+				}
+
+				_, err = client.Clickup.CustomFields.RemoveCustomFieldValue(context.Background(), task.ID, cf.ID, nil)
+				if err != nil {
+					if bulk {
+						fmt.Fprintf(ios.ErrOut, "%s (%d/%d) %s: failed to clear custom field %q: %v\n", cs.Yellow("!"), i+1, total, rawID, fieldName, err)
+					} else {
+						return fmt.Errorf("failed to clear custom field %q: %w", fieldName, err)
+					}
+				}
+			}
+		}
+
+		id := task.ID
+		if task.CustomID != "" {
+			id = task.CustomID
+		}
+
+		updated++
+		results = append(results, task)
+
+		if !opts.jsonFlags.WantsJSON() {
+			if bulk {
+				fmt.Fprintf(ios.Out, "(%d/%d) Updated task %s %s\n", i+1, total, cs.Bold(task.Name), cs.Gray("#"+id))
+			} else {
+				fmt.Fprintf(ios.Out, "%s Updated task %s %s\n", cs.Green("!"), cs.Bold(task.Name), cs.Gray("#"+id))
+				if task.URL != "" {
+					fmt.Fprintf(ios.Out, "%s\n", cs.Cyan(task.URL))
+				}
+
+				// Quick actions footer
+				fmt.Fprintln(ios.Out)
+				fmt.Fprintln(ios.Out, cs.Gray("---"))
+				fmt.Fprintln(ios.Out, cs.Gray("Quick actions:"))
+				fmt.Fprintf(ios.Out, "  %s  clickup task view %s\n", cs.Gray("View:"), id)
+				fmt.Fprintf(ios.Out, "  %s  clickup status set <status> %s\n", cs.Gray("Status:"), id)
+				fmt.Fprintf(ios.Out, "  %s  clickup comment add %s \"@user text\" (supports @mentions)\n", cs.Gray("Comment:"), id)
+			}
+		}
 	}
 
 	if opts.jsonFlags.WantsJSON() {
-		return opts.jsonFlags.OutputJSON(ios.Out, task)
+		if bulk {
+			return opts.jsonFlags.OutputJSON(ios.Out, results)
+		}
+		if len(results) > 0 {
+			return opts.jsonFlags.OutputJSON(ios.Out, results[0])
+		}
 	}
 
-	fmt.Fprintf(ios.Out, "%s Updated task %s %s\n", cs.Green("!"), cs.Bold(task.Name), cs.Gray("#"+id))
-	if task.URL != "" {
-		fmt.Fprintf(ios.Out, "%s\n", cs.Cyan(task.URL))
+	if bulk {
+		fmt.Fprintf(ios.Out, "\n%s Updated %d/%d tasks\n", cs.Green("!"), updated, total)
 	}
-
-	// Quick actions footer
-	fmt.Fprintln(ios.Out)
-	fmt.Fprintln(ios.Out, cs.Gray("---"))
-	fmt.Fprintln(ios.Out, cs.Gray("Quick actions:"))
-	fmt.Fprintf(ios.Out, "  %s  clickup task view %s\n", cs.Gray("View:"), id)
-	fmt.Fprintf(ios.Out, "  %s  clickup status set <status> %s\n", cs.Gray("Status:"), id)
-	fmt.Fprintf(ios.Out, "  %s  clickup comment add %s \"@user text\" (supports @mentions)\n", cs.Gray("Comment:"), id)
 
 	return nil
 }

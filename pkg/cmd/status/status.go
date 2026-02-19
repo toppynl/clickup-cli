@@ -15,6 +15,7 @@ func NewCmdStatus(f *cmdutil.Factory) *cobra.Command {
 
 	cmd.AddCommand(NewCmdSet(f))
 	cmd.AddCommand(NewCmdList(f))
+	cmd.AddCommand(NewCmdAdd(f))
 
 	return cmd
 }

@@ -100,6 +100,8 @@ clickup link pr
 | `clickup task delete <task-id>` | Delete a task permanently |
 | `clickup task search <query>` | Search tasks with fuzzy matching |
 | `clickup task recent` | Show your recently updated tasks with folder/list context |
+| `clickup task list-add <task-id>... --list-id ID` | Add tasks to an additional list |
+| `clickup task list-remove <task-id>... --list-id ID` | Remove tasks from a list |
 | `clickup task activity [task-id]` | View task details and comment history |
 | `clickup task time log [task-id]` | Log time to a task |
 | `clickup task time list [task-id]` | View time entries for a task |
@@ -112,6 +114,7 @@ clickup link pr
 | `clickup comment delete` | Delete a comment |
 | `clickup status set STATUS [task-id]` | Change task status with fuzzy matching |
 | `clickup status list` | List available statuses for a space |
+| `clickup status add <name>` | Add a new status to a space |
 | `clickup field list --list-id ID` | List available custom fields for a list |
 | `clickup tag list` | List available tags for a space |
 

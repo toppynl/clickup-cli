@@ -15,6 +15,10 @@ The --list-id flag is required to specify which list to create the task in.
 If --name is not provided, the command enters interactive mode and prompts
 for the task name, description, status, priority, due date, and time estimate.
 
+Use --from-file to bulk create tasks from a JSON file. The file should
+contain an array of task objects. Each object supports the same fields as
+the CLI flags. The --list-id flag is still required and applies to all tasks.
+
 Additional properties can be set with flags:
   --tags           Tags to add (comma-separated or repeat flag)
   --due-date       Due date in YYYY-MM-DD format
@@ -32,17 +36,28 @@ clickup task create [flags]
 ### Examples
 
 ```
-  # Create with flags
-  clickup task create --list-id 12345 --name "Fix login bug" --priority 2
+  # Create with flags (use naming convention: [Type] Context — Action (Platform))
+  clickup task create --list-id 12345 \
+    --name "[Bug] Auth — Fix login timeout (API)" --priority 2
 
   # Interactive mode (prompts for details)
   clickup task create --list-id 12345
 
   # Create with custom field and due date
-  clickup task create --list-id 12345 --name "Deploy v2" --field "Environment=staging" --due-date 2025-03-01
+  clickup task create --list-id 12345 \
+    --name "[Feature] Deploy — Release v2 to staging" \
+    --field "Environment=staging" --due-date 2025-03-01
 
   # Create a subtask
   clickup task create --list-id 12345 --name "Write tests" --parent 86abc123
+
+  # Bulk create from JSON file (array of task objects)
+  # Supports: name, description, status, priority, assignees, tags,
+  #           due_date, start_date, time_estimate, points, parent, fields
+  clickup task create --list-id 12345 --from-file tasks.json
+
+  # Bulk create subtasks under a parent
+  clickup task create --list-id 12345 --from-file checklist.json
 ```
 
 ### Options
@@ -53,13 +68,14 @@ clickup task create [flags]
       --due-date string               Due date (YYYY-MM-DD)
       --due-date-time                 Include time component in due date
       --field stringArray             Set a custom field value ("Name=value", repeatable)
+      --from-file string              Create tasks from a JSON file (array of task objects)
   -h, --help                          help for create
       --jq string                     Filter JSON output using a jq expression
       --json                          Output JSON
       --links-to string               Link to another task by ID
       --list-id string                ClickUp list ID (required)
       --markdown-description string   Task description in markdown
-      --name string                   Task name
+      --name string                   Task name (convention: [Type] Context — Action (Platform))
       --notify-all                    Notify all assignees and watchers
       --parent string                 Parent task ID (create as subtask)
       --points float                  Sprint/story points (default -999)

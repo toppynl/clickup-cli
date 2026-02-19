@@ -146,6 +146,48 @@ func setTaskTags(client *api.Client, taskID string, currentTags, desiredTags []s
 	return nil
 }
 
+// addTaskToList adds a task to an additional list via the ClickUp API.
+// Uses POST /api/v2/list/{list_id}/task/{task_id}.
+func addTaskToList(client *api.Client, listID, taskID string) error {
+	req, err := http.NewRequest("POST",
+		fmt.Sprintf("https://api.clickup.com/api/v2/list/%s/task/%s", listID, taskID),
+		nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.DoRequest(req)
+	if err != nil {
+		return err
+	}
+	resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("failed to add task to list: status %d", resp.StatusCode)
+	}
+	return nil
+}
+
+// removeTaskFromList removes a task from an additional list via the ClickUp API.
+// Uses DELETE /api/v2/list/{list_id}/task/{task_id}.
+func removeTaskFromList(client *api.Client, listID, taskID string) error {
+	req, err := http.NewRequest("DELETE",
+		fmt.Sprintf("https://api.clickup.com/api/v2/list/%s/task/%s", listID, taskID),
+		nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.DoRequest(req)
+	if err != nil {
+		return err
+	}
+	resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("failed to remove task from list: status %d", resp.StatusCode)
+	}
+	return nil
+}
+
 // setMarkdownDescription sets the markdown_description field on a task
 // via a raw HTTP PUT request. The go-clickup library's TaskUpdateRequest
 // does not support this field.

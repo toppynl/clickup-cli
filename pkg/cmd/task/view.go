@@ -16,6 +16,25 @@ import (
 	"github.com/triptechtravel/clickup-cli/pkg/cmdutil"
 )
 
+type subtaskInfo struct {
+	ID       string `json:"id"`
+	CustomID string `json:"custom_id"`
+	Name     string `json:"name"`
+	Status   struct {
+		Status string `json:"status"`
+	} `json:"status"`
+	Assignees []struct {
+		Username string `json:"username"`
+	} `json:"assignees"`
+	StartDate string       `json:"start_date"`
+	DueDate   *clickup.Date `json:"due_date"`
+}
+
+type taskWithExtras struct {
+	clickup.Task
+	Subtasks []subtaskInfo `json:"subtasks"`
+}
+
 type viewOptions struct {
 	taskID    string
 	jsonFlags cmdutil.JSONFlags
@@ -42,8 +61,11 @@ associated GitHub PR and searches task descriptions for the PR URL.`,
   # Auto-detect task from git branch
   clickup task view
 
-  # Output as JSON
-  clickup task view 86a3xrwkp --json`,
+  # Output as JSON (includes subtasks with IDs, dates, and statuses)
+  clickup task view 86a3xrwkp --json
+
+  # Extract subtask IDs for bulk operations
+  clickup task view 86parent --json  # then use .subtasks[].id`,
 		Args:              cobra.MaximumNArgs(1),
 		PersistentPreRunE: cmdutil.NeedsAuth(f),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -97,11 +119,11 @@ func runView(f *cmdutil.Factory, opts *viewOptions) error {
 		return err
 	}
 
-	var getOpts *clickup.GetTaskOptions
+	getOpts := &clickup.GetTaskOptions{
+		IncludeSubTasks: true,
+	}
 	if isCustomID {
-		getOpts = &clickup.GetTaskOptions{
-			CustomTaskIDs: true,
-		}
+		getOpts.CustomTaskIDs = true
 	}
 
 	ctx := context.Background()
@@ -110,23 +132,28 @@ func runView(f *cmdutil.Factory, opts *viewOptions) error {
 		return fmt.Errorf("failed to fetch task %s: %w", taskID, err)
 	}
 
-	// Fetch the markdown description (the standard GetTask doesn't include it).
-	var mdTask clickup.Task
-	mdReq, err := client.Clickup.NewRequest("GET", fmt.Sprintf("task/%s/?include_markdown_description=true", task.ID), nil)
+	// Fetch markdown description and subtasks (the standard GetTask doesn't include these).
+	var extras taskWithExtras
+	extrasReq, err := client.Clickup.NewRequest("GET", fmt.Sprintf("task/%s/?include_markdown_description=true&include_subtasks=true", task.ID), nil)
 	if err == nil {
-		if _, err := client.Clickup.Do(ctx, mdReq, &mdTask); err == nil && mdTask.MarkdownDescription != "" {
-			task.MarkdownDescription = mdTask.MarkdownDescription
+		if _, err := client.Clickup.Do(ctx, extrasReq, &extras); err == nil {
+			if extras.MarkdownDescription != "" {
+				task.MarkdownDescription = extras.MarkdownDescription
+			}
 		}
 	}
 
 	if opts.jsonFlags.WantsJSON() {
-		return opts.jsonFlags.OutputJSON(ios.Out, task)
+		return opts.jsonFlags.OutputJSON(ios.Out, struct {
+			*clickup.Task
+			Subtasks []subtaskInfo `json:"subtasks"`
+		}{task, extras.Subtasks})
 	}
 
-	return printTaskView(f, task)
+	return printTaskView(f, task, extras.Subtasks)
 }
 
-func printTaskView(f *cmdutil.Factory, task *clickup.Task) error {
+func printTaskView(f *cmdutil.Factory, task *clickup.Task, subtasks []subtaskInfo) error {
 	ios := f.IOStreams
 	cs := ios.ColorScheme()
 	out := ios.Out
@@ -265,6 +292,39 @@ func printTaskView(f *cmdutil.Factory, task *clickup.Task) error {
 		fmt.Fprintf(out, "\n%s\n", cs.Bold("Linked Tasks:"))
 		for _, lt := range task.LinkedTasks {
 			fmt.Fprintf(out, "  %s\n", lt.TaskID)
+		}
+	}
+
+	// Subtasks
+	if len(subtasks) > 0 {
+		fmt.Fprintf(out, "\n%s\n", cs.Bold("Subtasks:"))
+		for _, st := range subtasks {
+			id := st.ID
+			if st.CustomID != "" {
+				id = st.CustomID
+			}
+			statusText := st.Status.Status
+			statusColorFn := cs.StatusColor(strings.ToLower(statusText))
+			var assignees string
+			if len(st.Assignees) > 0 {
+				names := make([]string, 0, len(st.Assignees))
+				for _, a := range st.Assignees {
+					names = append(names, a.Username)
+				}
+				assignees = fmt.Sprintf(" (%s)", strings.Join(names, ", "))
+			}
+			var dates string
+			if st.DueDate != nil {
+				if dt := st.DueDate.Time(); dt != nil {
+					dates = cs.Gray(" due:" + dt.Format("2006-01-02"))
+				}
+			}
+			if dates == "" && st.StartDate != "" {
+				if t, err := parseUnixMillis(st.StartDate); err == nil {
+					dates = cs.Gray(" start:" + t.Format("2006-01-02"))
+				}
+			}
+			fmt.Fprintf(out, "  #%s %s %s%s%s\n", id, statusColorFn(statusText), st.Name, assignees, dates)
 		}
 	}
 
