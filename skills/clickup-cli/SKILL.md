@@ -303,7 +303,19 @@ clickup task time log --duration 3h --billable
 clickup task time list
 clickup task time list 86abc123
 clickup task time list 86abc123 --json
+
+# Timesheet: list all your time entries for a date range
+clickup task time list --start-date 2026-02-01 --end-date 2026-02-28
+clickup task time list --start-date 2026-02-01 --end-date 2026-02-28 --json
+
+# Timesheet for a specific user
+clickup task time list --start-date 2026-02-01 --end-date 2026-02-28 --assignee 54695018
+
+# Timesheet for all workspace members
+clickup task time list --start-date 2026-02-01 --end-date 2026-02-28 --assignee all
 ```
+
+When `--start-date` and `--end-date` are provided, the command switches to **timesheet mode** — querying all time entries across tasks for the date range, grouped by task. Defaults to the current user; use `--assignee all` for everyone or `--assignee <user-id>` for a specific person.
 
 ## Inbox
 

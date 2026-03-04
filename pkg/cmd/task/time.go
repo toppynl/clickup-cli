@@ -213,31 +213,48 @@ func runTimeLog(f *cmdutil.Factory, opts *timeLogOptions) error {
 
 type timeListOptions struct {
 	taskID    string
+	startDate string
+	endDate   string
+	assignee  string
 	jsonFlags cmdutil.JSONFlags
 }
 
-// NewCmdTimeList returns a command to list time entries for a task.
+// NewCmdTimeList returns a command to list time entries for a task or date range.
 func NewCmdTimeList(f *cmdutil.Factory) *cobra.Command {
 	opts := &timeListOptions{}
 
 	cmd := &cobra.Command{
 		Use:   "list [<task-id>]",
-		Short: "View time entries for a task",
-		Long: `Display time entries logged against a ClickUp task.
+		Short: "View time entries for a task or date range",
+		Long: `Display time entries logged against a ClickUp task, or query all entries
+across tasks for a date range (timesheet mode).
 
-If no task ID is provided, the command attempts to auto-detect the task ID
-from the current git branch name.`,
+Per-task mode (default): Shows entries for a single task. If no task ID is
+provided, the CLI auto-detects it from the current git branch name.
+
+Timesheet mode: When --start-date and --end-date are provided, shows all
+time entries across tasks for the given date range. By default filters to
+the current user; use --assignee to change.`,
 		Example: `  # List time entries for a specific task
   clickup task time list 86a3xrwkp
 
   # Auto-detect task from git branch
   clickup task time list
 
+  # Timesheet: all your entries for a month
+  clickup task time list --start-date 2026-02-01 --end-date 2026-02-28
+
+  # Timesheet for all workspace members
+  clickup task time list --start-date 2026-02-01 --end-date 2026-02-28 --assignee all
+
+  # Timesheet for a specific user
+  clickup task time list --start-date 2026-02-01 --end-date 2026-02-28 --assignee 54695018
+
   # Output as JSON
   clickup task time list 86a3xrwkp --json
 
   # Filter with jq
-  clickup task time list 86a3xrwkp --jq '.[] | .duration'`,
+  clickup task time list --start-date 2026-02-01 --end-date 2026-02-28 --jq '[.[] | {task: .task.name, hrs: (.duration | tonumber / 3600000)}]'`,
 		Args:              cobra.MaximumNArgs(1),
 		PersistentPreRunE: cmdutil.NeedsAuth(f),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -248,6 +265,9 @@ from the current git branch name.`,
 		},
 	}
 
+	cmd.Flags().StringVar(&opts.startDate, "start-date", "", "Start date for timesheet mode (YYYY-MM-DD)")
+	cmd.Flags().StringVar(&opts.endDate, "end-date", "", "End date for timesheet mode (YYYY-MM-DD)")
+	cmd.Flags().StringVar(&opts.assignee, "assignee", "", "Filter by user ID, or \"all\" for everyone (default: current user)")
 	cmdutil.AddJSONFlags(cmd, &opts.jsonFlags)
 
 	return cmd
@@ -257,19 +277,34 @@ type timeEntryResponse struct {
 	Data []timeEntry `json:"data"`
 }
 
+type timeEntryTask struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
 type timeEntry struct {
-	ID          string `json:"id"`
-	Duration    string `json:"duration"`
-	Description string `json:"description"`
-	Start       string `json:"start"`
-	End         string `json:"end"`
+	ID          string         `json:"id"`
+	Duration    string         `json:"duration"`
+	Description string         `json:"description"`
+	Start       string         `json:"start"`
+	End         string         `json:"end"`
 	User        struct {
 		Username string `json:"username"`
 	} `json:"user"`
-	Billable bool `json:"billable"`
+	Billable bool           `json:"billable"`
+	Task     *timeEntryTask `json:"task,omitempty"`
 }
 
 func runTimeList(f *cmdutil.Factory, opts *timeListOptions) error {
+	timesheetMode := opts.startDate != "" || opts.endDate != ""
+
+	if timesheetMode {
+		return runTimeListTimesheet(f, opts)
+	}
+	return runTimeListPerTask(f, opts)
+}
+
+func runTimeListPerTask(f *cmdutil.Factory, opts *timeListOptions) error {
 	ios := f.IOStreams
 	cs := ios.ColorScheme()
 
@@ -338,6 +373,161 @@ func runTimeList(f *cmdutil.Factory, opts *timeListOptions) error {
 	}
 
 	return printTimeEntryTable(f, result.Data, taskID)
+}
+
+func runTimeListTimesheet(f *cmdutil.Factory, opts *timeListOptions) error {
+	ios := f.IOStreams
+
+	// Validate both dates are provided.
+	if opts.startDate == "" || opts.endDate == "" {
+		return fmt.Errorf("both --start-date and --end-date are required for timesheet mode")
+	}
+
+	// Parse dates.
+	startTime, err := time.ParseInLocation("2006-01-02", opts.startDate, time.Local)
+	if err != nil {
+		return fmt.Errorf("invalid --start-date %q (expected YYYY-MM-DD): %w", opts.startDate, err)
+	}
+	// End date is inclusive: set to end of day.
+	endTime, err := time.ParseInLocation("2006-01-02", opts.endDate, time.Local)
+	if err != nil {
+		return fmt.Errorf("invalid --end-date %q (expected YYYY-MM-DD): %w", opts.endDate, err)
+	}
+	endTime = endTime.Add(24*time.Hour - time.Millisecond)
+
+	startMs := startTime.UnixMilli()
+	endMs := endTime.UnixMilli()
+
+	// Get workspace (team) ID from config.
+	cfg, err := f.Config()
+	if err != nil {
+		return err
+	}
+	teamID := cfg.Workspace
+	if teamID == "" {
+		return fmt.Errorf("workspace not configured. Run 'clickup config set workspace <id>' first")
+	}
+
+	client, err := f.ApiClient()
+	if err != nil {
+		return err
+	}
+
+	// Build URL with date range.
+	apiURL := fmt.Sprintf("https://api.clickup.com/api/v2/team/%s/time_entries?start_date=%d&end_date=%d",
+		teamID, startMs, endMs)
+
+	// Resolve assignee filter.
+	if opts.assignee == "" || opts.assignee == "me" {
+		userID, err := cmdutil.GetCurrentUserID(client)
+		if err != nil {
+			return fmt.Errorf("could not determine current user: %w", err)
+		}
+		apiURL += fmt.Sprintf("&assignee=%d", userID)
+	} else if opts.assignee != "all" {
+		apiURL += fmt.Sprintf("&assignee=%s", opts.assignee)
+	}
+
+	req, err := http.NewRequest("GET", apiURL, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := client.DoRequest(req)
+	if err != nil {
+		return fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var result timeEntryResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	if opts.jsonFlags.WantsJSON() {
+		return opts.jsonFlags.OutputJSON(ios.Out, result.Data)
+	}
+
+	if len(result.Data) == 0 {
+		fmt.Fprintln(ios.ErrOut, "No time entries found.")
+		return nil
+	}
+
+	return printTimesheetTable(f, result.Data, opts.startDate, opts.endDate)
+}
+
+func printTimesheetTable(f *cmdutil.Factory, entries []timeEntry, startDate, endDate string) error {
+	ios := f.IOStreams
+	cs := ios.ColorScheme()
+	tp := tableprinter.New(ios)
+
+	fmt.Fprintf(ios.Out, "%s  %s to %s\n\n",
+		cs.Bold("Timesheet"),
+		cs.Cyan(startDate),
+		cs.Cyan(endDate),
+	)
+
+	// Header row.
+	tp.AddField(cs.Bold("DATE"))
+	tp.AddField(cs.Bold("TASK"))
+	tp.AddField(cs.Bold("USER"))
+	tp.AddField(cs.Bold("DURATION"))
+	tp.AddField(cs.Bold("DESCRIPTION"))
+	tp.EndRow()
+
+	tp.SetTruncateColumn(4) // Truncate description column if table is too wide.
+
+	var totalMs int64
+	for _, e := range entries {
+		// Convert start ms to date.
+		dateStr := e.Start
+		if t, err := parseUnixMillis(e.Start); err == nil {
+			dateStr = t.Format("2006-01-02")
+		}
+		tp.AddField(dateStr)
+
+		taskName := ""
+		if e.Task != nil {
+			taskName = e.Task.Name
+		}
+		tp.AddField(taskName)
+
+		tp.AddField(e.User.Username)
+		tp.AddField(formatDuration(e.Duration))
+		tp.AddField(e.Description)
+
+		tp.EndRow()
+
+		if ms, err := strconv.ParseInt(e.Duration, 10, 64); err == nil {
+			totalMs += ms
+		}
+	}
+
+	if err := tp.Render(); err != nil {
+		return err
+	}
+
+	// Totals summary.
+	fmt.Fprintln(ios.Out)
+	fmt.Fprintf(ios.Out, "%s %s across %d entries\n",
+		cs.Bold("Total:"),
+		cs.Green(formatDuration(strconv.FormatInt(totalMs, 10))),
+		len(entries),
+	)
+
+	// Quick actions footer
+	fmt.Fprintln(ios.Out)
+	fmt.Fprintln(ios.Out, cs.Gray("---"))
+	fmt.Fprintln(ios.Out, cs.Gray("Quick actions:"))
+	fmt.Fprintf(ios.Out, "  %s  clickup task time list --start-date %s --end-date %s --json\n", cs.Gray("JSON:"), startDate, endDate)
+	fmt.Fprintf(ios.Out, "  %s  clickup task time log <task-id> --duration <dur>\n", cs.Gray("Log:"))
+
+	return nil
 }
 
 func printTimeEntryTable(f *cmdutil.Factory, entries []timeEntry, taskID string) error {

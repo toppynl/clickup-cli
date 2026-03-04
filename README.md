@@ -21,7 +21,7 @@ A command-line tool for working with ClickUp tasks, comments, and sprints -- des
 - **Sprint dashboard** -- shows current sprint tasks grouped by status with assignees and priorities
 - **Inbox** -- surfaces recent @mentions in comments and task descriptions across your workspace
 - **Fuzzy status matching** -- change task status with partial or fuzzy input
-- **Time tracking** -- log and view time entries on tasks
+- **Time tracking** -- log and view time entries on tasks; workspace-wide timesheet queries with date ranges
 - **Full task properties** -- set tags, due dates, start dates, time estimates, story points, parent tasks, linked tasks, and task types from the CLI
 - **AI-friendly** -- structured `--json` output and explicit `--task`/`--repo` flags make it easy for AI coding agents (Claude Code, Copilot, Cursor) to read ClickUp context and update tasks as part of a development workflow
 - **GitHub Actions ready** -- automate status changes, PR linking, and task updates on PR events
@@ -104,7 +104,7 @@ clickup link pr
 | `clickup task list-remove <task-id>... --list-id ID` | Remove tasks from a list |
 | `clickup task activity [task-id]` | View task details and comment history |
 | `clickup task time log [task-id]` | Log time to a task |
-| `clickup task time list [task-id]` | View time entries for a task |
+| `clickup task time list [task-id]` | View time entries for a task or date range (timesheet) |
 | `clickup task time delete <entry-id>` | Delete a time entry |
 | `clickup task dependency add/remove` | Manage task dependencies (depends-on, blocks) |
 | `clickup task checklist add/remove` | Manage task checklists and checklist items |

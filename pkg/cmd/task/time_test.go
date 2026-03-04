@@ -33,6 +33,9 @@ func TestNewCmdTimeLog_Flags(t *testing.T) {
 func TestNewCmdTimeList_Flags(t *testing.T) {
 	cmd := NewCmdTimeList(nil)
 	assert.NotNil(t, cmd.Flags().Lookup("json"))
+	assert.NotNil(t, cmd.Flags().Lookup("start-date"))
+	assert.NotNil(t, cmd.Flags().Lookup("end-date"))
+	assert.NotNil(t, cmd.Flags().Lookup("assignee"))
 	assert.Equal(t, "list [<task-id>]", cmd.Use)
 }
 

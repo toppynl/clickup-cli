@@ -334,14 +334,37 @@ clickup task time log --duration 2h --description "Implemented auth"
 
 ### `task time list [TASK-ID]`
 
-View time entries for a task.
+View time entries for a task, or query all entries across tasks for a date range (timesheet mode).
+
+**Per-task mode** (default): Shows entries for a single task. Auto-detects task ID from git branch if not provided.
+
+**Timesheet mode**: When `--start-date` and `--end-date` are provided, shows all time entries across tasks for the given date range. Defaults to the current user; use `--assignee` to change.
 
 ```sh
+# Per-task: view entries for a specific task
 clickup task time list 86a3xrwkp
+
+# Per-task: auto-detect from git branch
+clickup task time list
+
+# Timesheet: all your entries for a month
+clickup task time list --start-date 2026-02-01 --end-date 2026-02-28
+
+# Timesheet for all workspace members
+clickup task time list --start-date 2026-02-01 --end-date 2026-02-28 --assignee all
+
+# Timesheet for a specific user
+clickup task time list --start-date 2026-02-01 --end-date 2026-02-28 --assignee 54695018
+
+# JSON output for scripting
+clickup task time list --start-date 2026-02-01 --end-date 2026-02-28 --json
 ```
 
 | Flag | Description |
 |------|-------------|
+| `--start-date DATE` | Start date for timesheet mode (YYYY-MM-DD) |
+| `--end-date DATE` | End date for timesheet mode (YYYY-MM-DD) |
+| `--assignee ID` | Filter by user ID, "me" (default), or "all" for everyone |
 | `--json` | Output as JSON |
 | `--jq EXPR` | Filter JSON output with a jq expression |
 
