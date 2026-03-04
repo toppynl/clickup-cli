@@ -21,6 +21,8 @@ type editOptions struct {
 	assignees           []int
 	removeAssignees     []int
 	tags                []string
+	addTags             []string
+	removeTags          []string
 	dueDate             string
 	startDate           string
 	timeEstimate        string
@@ -67,7 +69,14 @@ available custom fields and their types.`,
   clickup task edit 86abc1 86abc2 86abc3 --status "Closed"
 
   # Bulk edit: set due date on many tasks
-  clickup task edit 86abc1 86abc2 86abc3 --due-date 2026-03-01`,
+  clickup task edit 86abc1 86abc2 86abc3 --due-date 2026-03-01
+
+  # Add tags without removing existing ones
+  clickup task edit CU-abc123 --add-tags new-feature-development
+  clickup task edit 86abc1 86abc2 --add-tags r&d,new-app-development
+
+  # Remove specific tags
+  clickup task edit CU-abc123 --remove-tags fix`,
 		Args:              cobra.ArbitraryArgs,
 		PersistentPreRunE: cmdutil.NeedsAuth(f),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -84,6 +93,8 @@ available custom fields and their types.`,
 	cmd.Flags().IntSliceVar(&opts.assignees, "assignee", nil, "Assignee user ID(s) to add")
 	cmd.Flags().IntSliceVar(&opts.removeAssignees, "remove-assignee", nil, "Assignee user ID(s) to remove")
 	cmd.Flags().StringSliceVar(&opts.tags, "tags", nil, "Set tags (replaces existing)")
+	cmd.Flags().StringSliceVar(&opts.addTags, "add-tags", nil, "Add tags without removing existing ones")
+	cmd.Flags().StringSliceVar(&opts.removeTags, "remove-tags", nil, "Remove specific tags")
 	cmd.Flags().StringVar(&opts.dueDate, "due-date", "", `Due date (YYYY-MM-DD, or "none" to clear)`)
 	cmd.Flags().StringVar(&opts.startDate, "start-date", "", `Start date (YYYY-MM-DD, or "none" to clear)`)
 	cmd.Flags().StringVar(&opts.timeEstimate, "time-estimate", "", `Time estimate (e.g. 2h, 30m, 1h30m; "0" to clear)`)
@@ -133,6 +144,8 @@ func runEdit(f *cmdutil.Factory, opts *editOptions, cmd *cobra.Command) error {
 		!cmd.Flags().Changed("assignee") &&
 		!cmd.Flags().Changed("remove-assignee") &&
 		!cmd.Flags().Changed("tags") &&
+		!cmd.Flags().Changed("add-tags") &&
+		!cmd.Flags().Changed("remove-tags") &&
 		!cmd.Flags().Changed("due-date") &&
 		!cmd.Flags().Changed("start-date") &&
 		!cmd.Flags().Changed("time-estimate") &&
@@ -165,7 +178,7 @@ func runEdit(f *cmdutil.Factory, opts *editOptions, cmd *cobra.Command) error {
 
 	// Validate status and tags against the first task's space (shared across batch).
 	var spaceID string
-	if cmd.Flags().Changed("status") || cmd.Flags().Changed("tags") {
+	if cmd.Flags().Changed("status") || cmd.Flags().Changed("tags") || cmd.Flags().Changed("add-tags") {
 		parsed := git.ParseTaskID(taskIDs[0])
 		var getOpts *clickup.GetTaskOptions
 		if parsed.IsCustomID {
@@ -200,6 +213,11 @@ func runEdit(f *cmdutil.Factory, opts *editOptions, cmd *cobra.Command) error {
 	if cmd.Flags().Changed("tags") {
 		if spaceID != "" {
 			opts.tags = cmdutil.ValidateTags(client, spaceID, opts.tags, ios.ErrOut)
+		}
+	}
+	if cmd.Flags().Changed("add-tags") {
+		if spaceID != "" {
+			opts.addTags = cmdutil.ValidateTags(client, spaceID, opts.addTags, ios.ErrOut)
 		}
 	}
 
@@ -301,6 +319,32 @@ func runEdit(f *cmdutil.Factory, opts *editOptions, cmd *cobra.Command) error {
 					fmt.Fprintf(ios.ErrOut, "%s (%d/%d) %s: updated but failed to set tags: %v\n", cs.Yellow("!"), i+1, total, rawID, err)
 				} else {
 					return fmt.Errorf("task updated but failed to set tags: %w", err)
+				}
+			}
+		}
+
+		// Add tags incrementally (without removing existing ones).
+		if cmd.Flags().Changed("add-tags") {
+			for _, t := range opts.addTags {
+				if err := addTaskTag(client, task.ID, t); err != nil {
+					if bulk {
+						fmt.Fprintf(ios.ErrOut, "%s (%d/%d) %s: failed to add tag %q: %v\n", cs.Yellow("!"), i+1, total, rawID, t, err)
+					} else {
+						return fmt.Errorf("failed to add tag %q: %w", t, err)
+					}
+				}
+			}
+		}
+
+		// Remove specific tags.
+		if cmd.Flags().Changed("remove-tags") {
+			for _, t := range opts.removeTags {
+				if err := removeTaskTag(client, task.ID, t); err != nil {
+					if bulk {
+						fmt.Fprintf(ios.ErrOut, "%s (%d/%d) %s: failed to remove tag %q: %v\n", cs.Yellow("!"), i+1, total, rawID, t, err)
+					} else {
+						return fmt.Errorf("failed to remove tag %q: %w", t, err)
+					}
 				}
 			}
 		}

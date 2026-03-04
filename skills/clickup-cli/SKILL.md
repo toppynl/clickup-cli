@@ -170,6 +170,16 @@ clickup task edit --due-date 2025-03-01 --time-estimate 4h
 clickup task edit 86abc1 86abc2 86abc3 --status "Closed"
 clickup task edit 86abc1 86abc2 86abc3 --due-date 2026-03-01 --priority 2
 
+# Tags — add without removing existing
+clickup task edit CU-abc123 --add-tags new-feature-development
+clickup task edit 86abc1 86abc2 --add-tags r&d,new-app-development
+
+# Tags — remove specific tags
+clickup task edit CU-abc123 --remove-tags fix
+
+# Tags — replace all (use with caution)
+clickup task edit CU-abc123 --tags "ios,android,new-app-development"
+
 # Custom fields
 clickup task edit CU-abc123 --field "Environment=production"
 clickup task edit CU-abc123 --clear-field "Environment"

@@ -16,6 +16,8 @@ func TestNewCmdEdit_Flags(t *testing.T) {
 	assert.NotNil(t, cmd.Flags().Lookup("assignee"))
 	assert.NotNil(t, cmd.Flags().Lookup("remove-assignee"))
 	assert.NotNil(t, cmd.Flags().Lookup("tags"))
+	assert.NotNil(t, cmd.Flags().Lookup("add-tags"))
+	assert.NotNil(t, cmd.Flags().Lookup("remove-tags"))
 	assert.NotNil(t, cmd.Flags().Lookup("due-date"))
 	assert.NotNil(t, cmd.Flags().Lookup("start-date"))
 	assert.NotNil(t, cmd.Flags().Lookup("time-estimate"))
