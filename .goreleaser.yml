@@ -60,6 +60,7 @@ changelog:
       - "^chore:"
 
 release:
+  mode: keep-existing
   github:
     owner: triptechtravel
     name: clickup-cli
