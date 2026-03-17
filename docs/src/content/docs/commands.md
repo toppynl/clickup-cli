@@ -50,6 +50,20 @@ Flag details, examples, and options for each command are in the auto-generated [
 
 ---
 
+## Docs
+
+| Command | Description |
+|---------|-------------|
+| [`doc create`](/clickup-cli/reference/clickup_doc_create/) | Create a new ClickUp Doc |
+| [`doc list`](/clickup-cli/reference/clickup_doc_list/) | List ClickUp Docs in the workspace |
+| [`doc page create`](/clickup-cli/reference/clickup_doc_page_create/) | Create a page in a ClickUp Doc |
+| [`doc page edit`](/clickup-cli/reference/clickup_doc_page_edit/) | Edit a page in a ClickUp Doc |
+| [`doc page list`](/clickup-cli/reference/clickup_doc_page_list/) | List pages in a ClickUp Doc |
+| [`doc page view`](/clickup-cli/reference/clickup_doc_page_view/) | View a page in a ClickUp Doc |
+| [`doc view`](/clickup-cli/reference/clickup_doc_view/) | View a ClickUp Doc |
+
+---
+
 ## Status & fields
 
 | Command | Description |
@@ -58,6 +72,7 @@ Flag details, examples, and options for each command are in the auto-generated [
 | [`status add`](/clickup-cli/reference/clickup_status_add/) | Add a new status to a space |
 | [`status list`](/clickup-cli/reference/clickup_status_list/) | List available statuses for a space |
 | [`status set`](/clickup-cli/reference/clickup_status_set/) | Set the status of a task |
+| [`tag create`](/clickup-cli/reference/clickup_tag_create/) | Create tags in a space |
 | [`tag list`](/clickup-cli/reference/clickup_tag_list/) | List tags in a space |
 
 ---
