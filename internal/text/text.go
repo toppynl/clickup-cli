@@ -82,6 +82,21 @@ func PriorityName(priority int) string {
 	}
 }
 
+// FormatUnixMillis converts a Unix millisecond timestamp string (as returned
+// by the ClickUp v3 API) into a human-readable relative time. Returns the
+// original string unchanged if it cannot be parsed.
+func FormatUnixMillis(ms string) string {
+	if ms == "" {
+		return ""
+	}
+	var millis int64
+	if _, err := fmt.Sscan(ms, &millis); err != nil {
+		return ms
+	}
+	t := time.UnixMilli(millis)
+	return RelativeTime(t)
+}
+
 // IndentLines indents each line of text by the given prefix.
 func IndentLines(text, prefix string) string {
 	lines := strings.Split(text, "\n")
