@@ -26,12 +26,22 @@ type spec struct {
 }
 
 type operation struct {
-	OperationID string     `json:"operationId"`
-	Summary     string     `json:"summary"`
-	Parameters  []param    `json:"parameters"`
-	RequestBody *struct{}  `json:"requestBody"`
-	Responses   map[string]struct {
-		Content map[string]struct{} `json:"content"`
+	OperationID string    `json:"operationId"`
+	Summary     string    `json:"summary"`
+	Parameters  []param   `json:"parameters"`
+	RequestBody *struct {
+		Content map[string]struct {
+			Schema struct {
+				Ref string `json:"$ref"`
+			} `json:"schema"`
+		} `json:"content"`
+	} `json:"requestBody"`
+	Responses map[string]struct {
+		Content map[string]struct {
+			Schema struct {
+				Ref string `json:"$ref"`
+			} `json:"schema"`
+		} `json:"content"`
 	} `json:"responses"`
 }
 
@@ -168,15 +178,25 @@ func extractOperations(s spec, typesPkg string, existingTypes map[string]bool) [
 				HasReqBody: op.RequestBody != nil,
 			}
 
-			// Check if 200 response has JSON content.
-			if resp, ok := op.Responses["200"]; ok {
-				if _, ok := resp.Content["application/json"]; ok {
-					info.HasRespBody = true
+			// Check if 200 or 201 response has JSON content.
+			for _, code := range []string{"200", "201"} {
+				if resp, ok := op.Responses[code]; ok {
+					if _, ok := resp.Content["application/json"]; ok {
+						info.HasRespBody = true
+						break
+					}
 				}
 			}
 
 			// Build path pattern: /v2/task/{task_id} → "task/%s"
-			trimmed := strings.TrimPrefix(path, "/v2/")
+			// Also handle V3 paths: /api/v3/workspaces/{id}/docs → "workspaces/%s/docs"
+			trimmed := path
+			for _, prefix := range []string{"/v2/", "/api/v3/", "/api/v2/"} {
+				if strings.HasPrefix(trimmed, prefix) {
+					trimmed = strings.TrimPrefix(trimmed, prefix)
+					break
+				}
+			}
 			var pathArgs []pathArg
 			pattern := pathParamRe.ReplaceAllStringFunc(trimmed, func(match string) string {
 				name := match[1 : len(match)-1]
@@ -201,37 +221,36 @@ func extractOperations(s spec, typesPkg string, existingTypes map[string]bool) [
 				}
 			}
 
-			// Map to auto-gen type names. Look up which name actually exists
-			// in the generated types file (codegen may clean names differently).
+			// Map to auto-gen type names. Strategy:
+			// 1. Try {OperationId}JSONRequest/Response (V2 inline schema pattern)
+			// 2. Follow $ref to components/schemas and use that type name (V3 pattern)
+			// 3. Fall back to skipping request or dropping response
 			cleanedOpID := cleanFuncName(op.OperationID)
 			skip := false
 
 			if info.HasReqBody {
-				reqName := cleanedOpID + "JSONRequest"
-				if existingTypes[reqName] {
-					info.ReqType = typesPkg + "." + reqName
-				} else {
-					// Try original operationId (some have special chars removed differently)
-					altName := op.OperationID + "JSONRequest"
-					if existingTypes[altName] {
-						info.ReqType = typesPkg + "." + altName
-					} else {
-						skip = true // can't find request type
-					}
+				info.ReqType = resolveTypeNameWithTypes(typesPkg, existingTypes, cleanedOpID+"JSONRequest", op.OperationID+"JSONRequest",
+					refToTypeName(op.RequestBody.Content["application/json"].Schema.Ref))
+				if info.ReqType == "" {
+					skip = true
 				}
 			}
 			if info.HasRespBody {
-				respName := cleanedOpID + "JSONResponse"
-				if existingTypes[respName] {
-					info.RespType = typesPkg + "." + respName
-				} else {
-					altName := op.OperationID + "JSONResponse"
-					if existingTypes[altName] {
-						info.RespType = typesPkg + "." + altName
-					} else {
-						// No response type — generate with any as response
-						info.HasRespBody = false
+				var respRef string
+				for _, code := range []string{"200", "201"} {
+					if resp, ok := op.Responses[code]; ok {
+						if ct, ok := resp.Content["application/json"]; ok {
+							if ct.Schema.Ref != "" {
+								respRef = ct.Schema.Ref
+								break
+							}
+						}
 					}
+				}
+				info.RespType = resolveTypeNameWithTypes(typesPkg, existingTypes, cleanedOpID+"JSONResponse", op.OperationID+"JSONResponse",
+					refToTypeName(respRef))
+				if info.RespType == "" {
+					info.HasRespBody = false
 				}
 			}
 
@@ -244,6 +263,30 @@ func extractOperations(s spec, typesPkg string, existingTypes map[string]bool) [
 	}
 
 	return ops
+}
+
+// refToTypeName extracts a Go type name from a $ref like
+// "#/components/schemas/PublicDocsDocCoreDto" → "PublicDocsDocCoreDto"
+func refToTypeName(ref string) string {
+	if ref == "" {
+		return ""
+	}
+	parts := strings.Split(ref, "/")
+	return parts[len(parts)-1]
+}
+
+// resolveTypeNameWithTypes tries candidate names against existingTypes and returns
+// the first match prefixed with the types package.
+func resolveTypeNameWithTypes(typesPkg string, existingTypes map[string]bool, candidates ...string) string {
+	for _, name := range candidates {
+		if name == "" {
+			continue
+		}
+		if existingTypes[name] {
+			return typesPkg + "." + name
+		}
+	}
+	return ""
 }
 
 func cleanFuncName(opID string) string {
