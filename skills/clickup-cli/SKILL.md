@@ -38,6 +38,12 @@ clickup task view CU-abc123
 # View with JSON — useful for extracting subtask IDs for bulk operations
 clickup task view 86abc123 --json
 
+# Bulk view: fetch multiple tasks concurrently (up to 10 parallel)
+clickup task view 86abc1 86abc2 86abc3 --json
+
+# Extract tags from multiple tasks
+clickup task view 86abc1 86abc2 86abc3 --jq '[.[] | {id: .id, tags: [.tags[].name]}]'
+
 # Search tasks by name and description (supports fuzzy matching)
 # Uses progressive drill-down: sprint → your tasks → space → workspace
 clickup task search "login bug"
@@ -313,6 +319,9 @@ clickup task time log --duration 45m --date 2025-01-15
 # Log billable time
 clickup task time log --duration 3h --billable
 
+# Log time for another team member
+clickup task time log 86abc123 --duration 2h --assignee 54874661
+
 # List time entries for a task
 clickup task time list
 clickup task time list 86abc123
@@ -325,11 +334,14 @@ clickup task time list --start-date 2026-02-01 --end-date 2026-02-28 --json
 # Timesheet for a specific user
 clickup task time list --start-date 2026-02-01 --end-date 2026-02-28 --assignee 54695018
 
+# Timesheet for multiple users (fetched concurrently)
+clickup task time list --start-date 2026-03-01 --end-date 2026-03-31 --assignee 48884897,54874661,54874662
+
 # Timesheet for all workspace members
 clickup task time list --start-date 2026-02-01 --end-date 2026-02-28 --assignee all
 ```
 
-When `--start-date` and `--end-date` are provided, the command switches to **timesheet mode** — querying all time entries across tasks for the date range, grouped by task. Defaults to the current user; use `--assignee all` for everyone or `--assignee <user-id>` for a specific person.
+When `--start-date` and `--end-date` are provided, the command switches to **timesheet mode** — querying all time entries across tasks for the date range, grouped by task. Defaults to the current user; use `--assignee all` for everyone, `--assignee <user-id>` for a specific person, or `--assignee id1,id2,id3` for multiple users (fetched concurrently).
 
 ## Inbox
 

@@ -24,7 +24,7 @@ Flag details, examples, and options for each command are in the auto-generated [
 | [`task list-remove`](/clickup-cli/reference/clickup_task_list-remove/) | Remove tasks from a list |
 | [`task recent`](/clickup-cli/reference/clickup_task_recent/) | Show recently updated tasks |
 | [`task search`](/clickup-cli/reference/clickup_task_search/) | Search tasks by name and description |
-| [`task view`](/clickup-cli/reference/clickup_task_view/) | View a ClickUp task |
+| [`task view`](/clickup-cli/reference/clickup_task_view/) | View one or more ClickUp tasks |
 
 ---
 

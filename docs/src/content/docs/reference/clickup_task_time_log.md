@@ -30,11 +30,15 @@ clickup task time log [<task-id>] [flags]
 
   # Log billable time
   clickup task time log --duration 3h --billable
+
+  # Log time for another team member
+  clickup task time log 86a3xrwkp --duration 2h --assignee 54874661
 ```
 
 ### Options
 
 ```
+      --assignee string      User ID to log time for (default: current user)
       --billable             Mark time entry as billable
       --date string          Date of the work (YYYY-MM-DD, default today)
       --description string   Description of work done

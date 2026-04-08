@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/raksul/go-clickup/clickup"
@@ -42,6 +43,7 @@ type timeLogOptions struct {
 	duration    string
 	description string
 	date        string
+	assignee    string
 	billable    bool
 }
 
@@ -66,7 +68,10 @@ from the current git branch name.`,
   clickup task time log 86a3xrwkp --duration 45m --date 2025-01-15
 
   # Log billable time
-  clickup task time log --duration 3h --billable`,
+  clickup task time log --duration 3h --billable
+
+  # Log time for another team member
+  clickup task time log 86a3xrwkp --duration 2h --assignee 54874661`,
 		Args:              cobra.MaximumNArgs(1),
 		PersistentPreRunE: cmdutil.NeedsAuth(f),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -83,6 +88,7 @@ from the current git branch name.`,
 	cmd.Flags().StringVar(&opts.duration, "duration", "", "Duration to log (e.g. \"2h\", \"30m\", \"1h30m\")")
 	cmd.Flags().StringVar(&opts.description, "description", "", "Description of work done")
 	cmd.Flags().StringVar(&opts.date, "date", "", "Date of the work (YYYY-MM-DD, default today)")
+	cmd.Flags().StringVar(&opts.assignee, "assignee", "", "User ID to log time for (default: current user)")
 	cmd.Flags().BoolVar(&opts.billable, "billable", false, "Mark time entry as billable")
 
 	_ = cmd.MarkFlagRequired("duration")
@@ -152,6 +158,13 @@ func runTimeLog(f *cmdutil.Factory, opts *timeLogOptions) error {
 		"duration":    durationMs,
 		"billable":    opts.billable,
 		"tid":         taskID,
+	}
+	if opts.assignee != "" {
+		assigneeID, err := strconv.Atoi(opts.assignee)
+		if err != nil {
+			return fmt.Errorf("invalid assignee ID %q: must be a numeric user ID", opts.assignee)
+		}
+		body["assignee"] = assigneeID
 	}
 	bodyJSON, err := json.Marshal(body)
 	if err != nil {
@@ -255,6 +268,9 @@ the current user; use --assignee to change.`,
   # Timesheet for a specific user
   clickup task time list --start-date 2026-02-01 --end-date 2026-02-28 --assignee 54695018
 
+  # Timesheet for multiple users (fetched concurrently)
+  clickup task time list --start-date 2026-03-01 --end-date 2026-03-31 --assignee 48884897,54874661,54874662
+
   # Output as JSON
   clickup task time list 86a3xrwkp --json
 
@@ -272,7 +288,7 @@ the current user; use --assignee to change.`,
 
 	cmd.Flags().StringVar(&opts.startDate, "start-date", "", "Start date for timesheet mode (YYYY-MM-DD)")
 	cmd.Flags().StringVar(&opts.endDate, "end-date", "", "End date for timesheet mode (YYYY-MM-DD)")
-	cmd.Flags().StringVar(&opts.assignee, "assignee", "", "Filter by user ID, or \"all\" for everyone (default: current user)")
+	cmd.Flags().StringVar(&opts.assignee, "assignee", "", `Filter by user ID(s) — comma-separated, or "all" for everyone (default: current user)`)
 	cmd.Flags().StringSliceVar(&opts.tags, "tag", nil, `Filter by task tag(s) — comma-separated or repeated (OR logic, timesheet mode only)`)
 	cmdutil.AddJSONFlags(cmd, &opts.jsonFlags)
 
@@ -424,40 +440,65 @@ func runTimeListTimesheet(f *cmdutil.Factory, opts *timeListOptions) error {
 		return err
 	}
 
-	// Build URL with date range.
-	apiURL := fmt.Sprintf("%s/team/%s/time_entries?start_date=%d&end_date=%d", client.BaseURL(),
-		teamID, startMs, endMs)
-
-	// Resolve assignee filter.
+	// Resolve assignee IDs.
+	var assigneeIDs []string
 	if opts.assignee == "" || opts.assignee == "me" {
 		userID, err := cmdutil.GetCurrentUserID(client)
 		if err != nil {
 			return fmt.Errorf("could not determine current user: %w", err)
 		}
-		apiURL += fmt.Sprintf("&assignee=%d", userID)
-	} else if opts.assignee != "all" {
-		apiURL += fmt.Sprintf("&assignee=%s", opts.assignee)
+		assigneeIDs = []string{fmt.Sprintf("%d", userID)}
+	} else if opts.assignee == "all" {
+		assigneeIDs = nil // no filter
+	} else {
+		assigneeIDs = strings.Split(opts.assignee, ",")
 	}
 
-	req, err := http.NewRequest("GET", apiURL, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-
-	resp, err := client.DoRequest(req)
-	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
-	}
-
+	// Fetch time entries — one request per assignee (or one unfiltered for "all").
 	var result timeEntryResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return fmt.Errorf("failed to decode response: %w", err)
+	if len(assigneeIDs) <= 1 {
+		// Single assignee or "all" — one API call.
+		apiURL := fmt.Sprintf("%s/team/%s/time_entries?start_date=%d&end_date=%d", client.BaseURL(),
+			teamID, startMs, endMs)
+		if len(assigneeIDs) == 1 {
+			apiURL += fmt.Sprintf("&assignee=%s", assigneeIDs[0])
+		}
+		entries, err := fetchTimeEntries(client, apiURL)
+		if err != nil {
+			return err
+		}
+		result.Data = entries
+	} else {
+		// Multiple assignees — fetch concurrently with bounded parallelism.
+		type fetchResult struct {
+			entries []timeEntry
+			err     error
+		}
+		results := make([]fetchResult, len(assigneeIDs))
+		var wg sync.WaitGroup
+		sem := make(chan struct{}, 5)
+
+		for i, aid := range assigneeIDs {
+			wg.Add(1)
+			go func(idx int, assignee string) {
+				defer wg.Done()
+				sem <- struct{}{}
+				defer func() { <-sem }()
+
+				apiURL := fmt.Sprintf("%s/team/%s/time_entries?start_date=%d&end_date=%d&assignee=%s",
+					client.BaseURL(), teamID, startMs, endMs, assignee)
+				entries, err := fetchTimeEntries(client, apiURL)
+				results[idx] = fetchResult{entries, err}
+			}(i, aid)
+		}
+		wg.Wait()
+
+		for _, r := range results {
+			if r.err != nil {
+				return r.err
+			}
+			result.Data = append(result.Data, r.entries...)
+		}
 	}
 
 	// Filter by tag if requested.
@@ -479,6 +520,32 @@ func runTimeListTimesheet(f *cmdutil.Factory, opts *timeListOptions) error {
 	}
 
 	return printTimesheetTable(f, result.Data, opts.startDate, opts.endDate)
+}
+
+// fetchTimeEntries performs a single GET request and returns the time entries.
+func fetchTimeEntries(client *api.Client, apiURL string) ([]timeEntry, error) {
+	req, err := http.NewRequest("GET", apiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := client.DoRequest(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var result timeEntryResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return result.Data, nil
 }
 
 // filterTimeEntriesByTags filters time entries to only those whose task has at

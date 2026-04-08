@@ -39,6 +39,9 @@ clickup task time list [<task-id>] [flags]
   # Timesheet for a specific user
   clickup task time list --start-date 2026-02-01 --end-date 2026-02-28 --assignee 54695018
 
+  # Timesheet for multiple users (fetched concurrently)
+  clickup task time list --start-date 2026-03-01 --end-date 2026-03-31 --assignee 48884897,54874661,54874662
+
   # Output as JSON
   clickup task time list 86a3xrwkp --json
 
@@ -49,7 +52,7 @@ clickup task time list [<task-id>] [flags]
 ### Options
 
 ```
-      --assignee string     Filter by user ID, or "all" for everyone (default: current user)
+      --assignee string     Filter by user ID(s) — comma-separated, or "all" for everyone (default: current user)
       --end-date string     End date for timesheet mode (YYYY-MM-DD)
   -h, --help                help for list
       --jq string           Filter JSON output using a jq expression

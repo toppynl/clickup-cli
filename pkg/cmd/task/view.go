@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/raksul/go-clickup/clickup"
@@ -36,25 +37,29 @@ type taskWithExtras struct {
 }
 
 type viewOptions struct {
-	taskID    string
+	taskIDs   []string
 	jsonFlags cmdutil.JSONFlags
 }
 
-// NewCmdView returns a command to view a single ClickUp task.
+// NewCmdView returns a command to view one or more ClickUp tasks.
 func NewCmdView(f *cmdutil.Factory) *cobra.Command {
 	opts := &viewOptions{}
 
 	cmd := &cobra.Command{
-		Use:   "view [<task-id>]",
-		Short: "View a ClickUp task",
-		Long: `Display detailed information about a ClickUp task.
+		Use:   "view [<task-id>...]",
+		Short: "View one or more ClickUp tasks",
+		Long: `Display detailed information about one or more ClickUp tasks.
 
 If no task ID is provided, the command attempts to auto-detect the task ID
 from the current git branch name. Branch names containing CU-<id> or
 PREFIX-<number> patterns are recognized.
 
 If no task ID is found in the branch name, the command checks for an
-associated GitHub PR and searches task descriptions for the PR URL.`,
+associated GitHub PR and searches task descriptions for the PR URL.
+
+Multiple task IDs can be provided for bulk fetching. In bulk mode, tasks are
+fetched concurrently (up to 10 parallel requests). Bulk mode requires JSON
+output (--json, --jq, or --template) and returns an array of tasks.`,
 		Example: `  # View a specific task
   clickup task view 86a3xrwkp
 
@@ -64,13 +69,20 @@ associated GitHub PR and searches task descriptions for the PR URL.`,
   # Output as JSON (includes subtasks with IDs, dates, and statuses)
   clickup task view 86a3xrwkp --json
 
+  # Bulk fetch multiple tasks as JSON array
+  clickup task view 86abc1 86abc2 86abc3 --json
+
+  # Extract tags from multiple tasks
+  clickup task view 86abc1 86abc2 --jq '.[].tags[].name'
+
   # Extract subtask IDs for bulk operations
   clickup task view 86parent --json  # then use .subtasks[].id`,
-		Args:              cobra.MaximumNArgs(1),
+		Args:              cobra.ArbitraryArgs,
 		PersistentPreRunE: cmdutil.NeedsAuth(f),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) > 0 {
-				opts.taskID = args[0]
+			opts.taskIDs = args
+			if len(args) > 1 && !opts.jsonFlags.WantsJSON() {
+				return fmt.Errorf("bulk view requires JSON output: add --json, --jq, or --template")
 			}
 			return runView(f, opts)
 		},
@@ -85,34 +97,38 @@ func runView(f *cmdutil.Factory, opts *viewOptions) error {
 	ios := f.IOStreams
 	cs := ios.ColorScheme()
 
-	taskID := opts.taskID
-	isCustomID := false
+	taskIDs := opts.taskIDs
 
-	// Auto-detect task ID from git branch if not provided.
-	if taskID == "" {
+	// Auto-detect task ID from git branch if none provided.
+	if len(taskIDs) == 0 {
 		gitCtx, err := f.GitContext()
 		if err != nil {
 			return fmt.Errorf("could not detect task ID: %w\n\n%s", err, git.BranchNamingSuggestion(""))
 		}
 		if gitCtx.TaskID == nil {
 			// Try to find task via current branch's PR URL in task descriptions.
-			if foundID, foundCustom, prNum := findTaskViaPR(f, ios); foundID != "" {
+			if foundID, _, prNum := findTaskViaPR(f, ios); foundID != "" {
 				fmt.Fprintf(ios.ErrOut, "Detected task %s via PR #%d\n", cs.Bold(foundID), prNum)
-				taskID = foundID
-				isCustomID = foundCustom
+				taskIDs = []string{foundID}
 			} else {
 				fmt.Fprintln(ios.ErrOut, cs.Yellow(git.BranchNamingSuggestion(gitCtx.Branch)))
 				return &cmdutil.SilentError{Err: fmt.Errorf("no task ID found in branch")}
 			}
 		} else {
-			taskID = gitCtx.TaskID.ID
-			isCustomID = gitCtx.TaskID.IsCustomID
+			taskIDs = []string{gitCtx.TaskID.ID}
 		}
-	} else {
-		parsed := git.ParseTaskID(taskID)
-		taskID = parsed.ID
-		isCustomID = parsed.IsCustomID
 	}
+
+	// Bulk mode: fetch multiple tasks concurrently.
+	if len(taskIDs) > 1 {
+		return runViewBulk(f, opts, taskIDs)
+	}
+
+	// Single task mode (original behavior).
+	rawID := taskIDs[0]
+	parsed := git.ParseTaskID(rawID)
+	taskID := parsed.ID
+	isCustomID := parsed.IsCustomID
 
 	cfg, err := f.Config()
 	if err != nil {
@@ -151,6 +167,95 @@ func runView(f *cmdutil.Factory, opts *viewOptions) error {
 	}
 
 	return printTaskView(f, task, extras.Subtasks)
+}
+
+// runViewBulk fetches multiple tasks concurrently with bounded parallelism.
+func runViewBulk(f *cmdutil.Factory, opts *viewOptions, rawIDs []string) error {
+	ios := f.IOStreams
+	cs := ios.ColorScheme()
+
+	cfg, err := f.Config()
+	if err != nil {
+		return err
+	}
+
+	client, err := f.ApiClient()
+	if err != nil {
+		return err
+	}
+
+	type taskResult struct {
+		Task     *clickup.Task `json:"task"`
+		Subtasks []subtaskInfo `json:"subtasks"`
+		Err      error         `json:"-"`
+		ID       string        `json:"-"`
+	}
+
+	results := make([]taskResult, len(rawIDs))
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, 10) // max 10 concurrent requests
+
+	ctx := context.Background()
+
+	for i, rawID := range rawIDs {
+		wg.Add(1)
+		go func(idx int, raw string) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			parsed := git.ParseTaskID(raw)
+			isCustomID := parsed.IsCustomID
+			taskID := parsed.ID
+
+			results[idx].ID = taskID
+
+			getOpts := cmdutil.CustomIDTaskOptionsWithSubtasks(cfg, isCustomID)
+			task, _, err := client.Clickup.Tasks.GetTask(ctx, taskID, getOpts)
+			if err != nil {
+				results[idx].Err = err
+				return
+			}
+
+			// Fetch subtasks.
+			var extras taskWithExtras
+			extrasReq, err := client.Clickup.NewRequest("GET", fmt.Sprintf("task/%s/?include_markdown_description=true&include_subtasks=true", task.ID), nil)
+			if err == nil {
+				if _, err := client.Clickup.Do(ctx, extrasReq, &extras); err == nil {
+					if extras.MarkdownDescription != "" {
+						task.MarkdownDescription = extras.MarkdownDescription
+					}
+				}
+			}
+
+			results[idx].Task = task
+			results[idx].Subtasks = extras.Subtasks
+		}(i, rawID)
+	}
+
+	wg.Wait()
+
+	// Report errors to stderr, collect successful results.
+	type taskOutput struct {
+		*clickup.Task
+		Subtasks []subtaskInfo `json:"subtasks"`
+	}
+	var output []taskOutput
+	var errCount int
+	for _, r := range results {
+		if r.Err != nil {
+			fmt.Fprintf(ios.ErrOut, "%s failed to fetch %s: %v\n", cs.Red("✗"), r.ID, r.Err)
+			errCount++
+			continue
+		}
+		output = append(output, taskOutput{r.Task, r.Subtasks})
+	}
+
+	if len(output) > 0 {
+		fmt.Fprintf(ios.ErrOut, "Fetched %d/%d tasks\n", len(output), len(rawIDs))
+	}
+
+	return opts.jsonFlags.OutputJSON(ios.Out, output)
 }
 
 func printTaskView(f *cmdutil.Factory, task *clickup.Task, subtasks []subtaskInfo) error {
