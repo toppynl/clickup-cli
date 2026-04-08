@@ -63,6 +63,66 @@ func TestUpdateTask_SendsMarkdownContent(t *testing.T) {
 	assert.Equal(t, "# Hello\n\nWorld", capturedBody["markdown_content"])
 }
 
+// Regression test: the ClickUp API returns time_spent and time_estimate as
+// numbers (milliseconds), but the generated UpdateTaskJSONResponse struct
+// declares them as Nullable[string]. This causes json.Unmarshal to fail with:
+//
+//	json: cannot unmarshal number into Go struct field
+//	    UpdateTaskJSONResponse.time_spent of type string
+//
+// This test reproduces the bug by returning a realistic API response with
+// numeric time_spent and time_estimate fields.
+func TestUpdateTask_NumericTimeSpent(t *testing.T) {
+	// The ClickUp API returns time_spent and time_estimate as numbers
+	// (milliseconds), not strings. This response includes those numeric
+	// fields alongside other standard fields to reproduce the bug.
+	const responseWithNumericTime = `{
+		"id": "86d2ay3mz",
+		"name": "Test task",
+		"status": {"status": "in progress"},
+		"time_estimate": 7200000,
+		"time_spent": 3600000,
+		"url": "https://app.clickup.com/t/86d2ay3mz"
+	}`
+
+	_, client := testServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-RateLimit-Remaining", "99")
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(responseWithNumericTime))
+	})
+
+	md := "## Updated description"
+	resp, err := UpdateTask(context.Background(), client, "86d2ay3mz", &clickupv2.UpdateTaskJSONRequest{
+		MarkdownContent: &md,
+	})
+
+	require.NoError(t, err, "UpdateTask should not fail when API returns numeric time_spent/time_estimate")
+	assert.NotNil(t, resp)
+	assert.Equal(t, "86d2ay3mz", *resp.ID)
+}
+
+// Regression: same issue affects GetTask — the API returns numeric time_spent.
+func TestGetTask_NumericTimeSpent(t *testing.T) {
+	const response = `{
+		"id": "task1",
+		"name": "Task with time",
+		"status": {"status": "open"},
+		"time_estimate": 14400000,
+		"time_spent": 7200000
+	}`
+
+	_, client := testServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-RateLimit-Remaining", "99")
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(response))
+	})
+
+	resp, err := GetTask(context.Background(), client, "task1")
+
+	require.NoError(t, err, "GetTask should not fail when API returns numeric time_spent/time_estimate")
+	assert.NotNil(t, resp)
+}
+
 func TestAddTagToTask_CorrectPath(t *testing.T) {
 	var capturedPath string
 	var capturedMethod string

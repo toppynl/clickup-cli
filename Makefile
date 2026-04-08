@@ -40,8 +40,11 @@ SPEC_V3_URL := https://developer.clickup.com/openapi/ClickUp_PUBLIC_API_V3.yaml
 
 api/specs/clickup-v2.json:
 	@mkdir -p api/specs
-	curl -sfL -o $@ $(SPEC_V2_URL)
-	@echo "Downloaded V2 spec ($$(wc -c < $@ | tr -d ' ') bytes)"
+	curl -sfL -o $@.raw $(SPEC_V2_URL)
+	@echo "Patching V2 spec (fixing time_spent, assignees, tags types)..."
+	jq -f api/specs/patch-v2-spec.jq $@.raw > $@
+	rm -f $@.raw
+	@echo "Downloaded + patched V2 spec ($$(wc -c < $@ | tr -d ' ') bytes)"
 
 api/specs/clickup-v3.yaml:
 	@mkdir -p api/specs
