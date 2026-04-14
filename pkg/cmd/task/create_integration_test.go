@@ -121,7 +121,86 @@ func TestCreateCommand_MissingListID(t *testing.T) {
 	cmd := NewCmdCreate(tf.Factory)
 	err := testutil.RunCommand(t, cmd, "--name", "Test task")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "either --list-id or --current is required")
+	assert.Contains(t, err.Error(), "either --list-id, --list-name, or --current is required")
+}
+
+func TestCreateCommand_WithListName(t *testing.T) {
+	tf := testutil.NewTestFactory(t)
+
+	// GetFolders for space 67890
+	tf.Handle("GET", "space/67890/folder", 200, `{
+		"folders": [{
+			"id": "f1",
+			"name": "Folder One",
+			"lists": []
+		}]
+	}`)
+
+	// GetLists for folder f1
+	tf.Handle("GET", "folder/f1/list", 200, `{
+		"lists": [{
+			"id": "list99",
+			"name": "My Sprint List",
+			"space": {"id": "67890"}
+		}]
+	}`)
+
+	// GetFolderlessLists for space 67890
+	tf.Handle("GET", "space/67890/list", 200, `{
+		"lists": []
+	}`)
+
+	// CreateTask
+	tf.Handle("POST", "list/list99/task", 200, `{
+		"id": "new456",
+		"custom_id": null,
+		"name": "Task via list-name",
+		"status": {"status": "to do", "color": "#d3d3d3"},
+		"priority": null,
+		"creator": {"id": 1, "username": "test"},
+		"assignees": [],
+		"tags": [],
+		"url": "https://app.clickup.com/t/new456"
+	}`)
+
+	cmd := NewCmdCreate(tf.Factory)
+	err := testutil.RunCommand(t, cmd, "--list-name", "sprint", "--name", "Task via list-name")
+	require.NoError(t, err)
+
+	out := tf.OutBuf.String()
+	assert.Contains(t, out, "Task via list-name")
+	assert.Contains(t, out, "new456")
+}
+
+func TestCreateCommand_WithListName_Ambiguous(t *testing.T) {
+	tf := testutil.NewTestFactory(t)
+
+	// GetFolders for space 67890
+	tf.Handle("GET", "space/67890/folder", 200, `{
+		"folders": [{
+			"id": "f1",
+			"name": "Folder One",
+			"lists": []
+		}]
+	}`)
+
+	// GetLists for folder f1 — two lists with "sprint" in the name
+	tf.Handle("GET", "folder/f1/list", 200, `{
+		"lists": [
+			{"id": "list1", "name": "Sprint Alpha", "space": {"id": "67890"}},
+			{"id": "list2", "name": "Sprint Beta", "space": {"id": "67890"}}
+		]
+	}`)
+
+	// GetFolderlessLists
+	tf.Handle("GET", "space/67890/list", 200, `{"lists": []}`)
+
+	cmd := NewCmdCreate(tf.Factory)
+	err := testutil.RunCommand(t, cmd, "--list-name", "Sprint", "--name", "Test")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "ambiguous")
+	assert.Contains(t, err.Error(), "Sprint Alpha")
+	assert.Contains(t, err.Error(), "Sprint Beta")
 }
 
 func TestCreateCommand_NoNameNonInteractive(t *testing.T) {

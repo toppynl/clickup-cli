@@ -3,6 +3,7 @@ package task
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/triptechtravel/clickup-cli/api/clickupv2"
@@ -155,4 +156,95 @@ func resolveCurrentSprintList(f *cmdutil.Factory) (string, error) {
 	}
 
 	return listID, nil
+}
+
+// resolveListByName resolves a list name to a list ID by searching all folders
+// and folderless lists in the configured space. Matching is case-insensitive:
+// exact matches take priority, then substring matches. Returns an error if no
+// match is found or if multiple lists match ambiguously.
+func resolveListByName(f *cmdutil.Factory, name string) (string, error) {
+	cfg, err := f.Config()
+	if err != nil {
+		return "", err
+	}
+	if cfg.Space == "" {
+		return "", fmt.Errorf("no space configured; run 'clickup space set' first or use --list-id")
+	}
+
+	client, err := f.ApiClient()
+	if err != nil {
+		return "", err
+	}
+
+	ctx := context.Background()
+	nameLower := strings.ToLower(name)
+
+	var allLists []listCandidate
+
+	// Collect lists from folders.
+	folders, err := apiv2.GetFoldersLocal(ctx, client, cfg.Space, false)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch folders: %w", err)
+	}
+	for _, folder := range folders {
+		lists, err := apiv2.GetListsLocal(ctx, client, folder.ID, false)
+		if err != nil {
+			return "", fmt.Errorf("failed to fetch lists for folder %s: %w", folder.Name, err)
+		}
+		for _, l := range lists {
+			allLists = append(allLists, listCandidate{id: l.ID, name: l.Name})
+		}
+	}
+
+	// Collect folderless lists.
+	folderless, err := apiv2.GetFolderlessListsLocal(ctx, client, cfg.Space, false)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch folderless lists: %w", err)
+	}
+	for _, l := range folderless {
+		allLists = append(allLists, listCandidate{id: l.ID, name: l.Name})
+	}
+
+	// Exact match first (case-insensitive).
+	var exact []listCandidate
+	for _, c := range allLists {
+		if strings.ToLower(c.name) == nameLower {
+			exact = append(exact, c)
+		}
+	}
+	if len(exact) == 1 {
+		return exact[0].id, nil
+	}
+	if len(exact) > 1 {
+		return "", fmt.Errorf("ambiguous list name %q matched %d lists: %s", name, len(exact), formatCandidates(exact))
+	}
+
+	// Substring match (case-insensitive).
+	var substring []listCandidate
+	for _, c := range allLists {
+		if strings.Contains(strings.ToLower(c.name), nameLower) {
+			substring = append(substring, c)
+		}
+	}
+	if len(substring) == 1 {
+		return substring[0].id, nil
+	}
+	if len(substring) > 1 {
+		return "", fmt.Errorf("ambiguous list name %q matched %d lists: %s", name, len(substring), formatCandidates(substring))
+	}
+
+	return "", fmt.Errorf("no list found matching %q", name)
+}
+
+type listCandidate struct {
+	id   string
+	name string
+}
+
+func formatCandidates(candidates []listCandidate) string {
+	var parts []string
+	for _, c := range candidates {
+		parts = append(parts, fmt.Sprintf("%s (id: %s)", c.name, c.id))
+	}
+	return strings.Join(parts, ", ")
 }

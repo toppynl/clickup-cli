@@ -9,8 +9,9 @@ Create a new ClickUp task
 
 Create a new task in a ClickUp list.
 
-Either --list-id or --current is required. Use --current to automatically
+Either --list-id, --list-name, or --current is required. Use --current to automatically
 resolve the active sprint list from the configured sprint folder.
+Use --list-name to resolve a list by name (case-insensitive, searches all folders).
 If --name is not provided, the command enters interactive mode and prompts
 for the task name, description, status, priority, due date, and time estimate.
 
@@ -76,6 +77,7 @@ clickup task create [flags]
       --json                          Output JSON
       --links-to string               Link to another task by ID
       --list-id string                ClickUp list ID
+      --list-name string              Resolve list by name (case-insensitive; searches folders + folderless lists)
       --markdown-description string   Task description in markdown
       --name string                   Task name (convention: [Type] Context — Action (Platform))
       --notify-all                    Notify all assignees and watchers

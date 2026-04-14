@@ -18,6 +18,7 @@ const pointsNotSet = -999.0
 
 type createOptions struct {
 	listID              string
+	listName            string
 	currentSprint       bool
 	name                string
 	description         string
@@ -71,8 +72,9 @@ func NewCmdCreate(f *cmdutil.Factory) *cobra.Command {
 		Short: "Create a new ClickUp task",
 		Long: `Create a new task in a ClickUp list.
 
-Either --list-id or --current is required. Use --current to automatically
+Either --list-id, --list-name, or --current is required. Use --current to automatically
 resolve the active sprint list from the configured sprint folder.
+Use --list-name to resolve a list by name (case-insensitive, searches all folders).
 If --name is not provided, the command enters interactive mode and prompts
 for the task name, description, status, priority, due date, and time estimate.
 
@@ -122,8 +124,15 @@ Additional properties can be set with flags:
 				}
 				opts.listID = listID
 			}
+			if opts.listName != "" {
+				listID, err := resolveListByName(f, opts.listName)
+				if err != nil {
+					return err
+				}
+				opts.listID = listID
+			}
 			if opts.listID == "" {
-				return fmt.Errorf("either --list-id or --current is required")
+				return fmt.Errorf("either --list-id, --list-name, or --current is required")
 			}
 			if opts.fromFile != "" {
 				return runBulkCreate(f, opts)
@@ -133,6 +142,7 @@ Additional properties can be set with flags:
 	}
 
 	cmd.Flags().StringVar(&opts.listID, "list-id", "", "ClickUp list ID")
+	cmd.Flags().StringVar(&opts.listName, "list-name", "", "Resolve list by name (case-insensitive; searches folders + folderless lists)")
 	cmd.Flags().BoolVar(&opts.currentSprint, "current", false, "Create in the current sprint (auto-resolves list ID from sprint folder)")
 	cmd.Flags().StringVar(&opts.name, "name", "", "Task name (convention: [Type] Context — Action (Platform))")
 	cmd.Flags().StringVar(&opts.description, "description", "", "Task description")
@@ -154,7 +164,7 @@ Additional properties can be set with flags:
 	cmd.Flags().StringArrayVar(&opts.fields, "field", nil, `Set a custom field value ("Name=value", repeatable)`)
 	cmd.Flags().StringVar(&opts.fromFile, "from-file", "", "Create tasks from a JSON file (array of task objects)")
 
-	cmd.MarkFlagsMutuallyExclusive("list-id", "current")
+	cmd.MarkFlagsMutuallyExclusive("list-id", "list-name", "current")
 
 	cmdutil.AddJSONFlags(cmd, &opts.jsonFlags)
 

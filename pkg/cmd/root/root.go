@@ -4,6 +4,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/triptechtravel/clickup-cli/pkg/cmd/attachment"
 	"github.com/triptechtravel/clickup-cli/pkg/cmd/auth"
+	"github.com/triptechtravel/clickup-cli/pkg/cmd/chat"
 	"github.com/triptechtravel/clickup-cli/pkg/cmd/comment"
 	"github.com/triptechtravel/clickup-cli/pkg/cmd/completion"
 	"github.com/triptechtravel/clickup-cli/pkg/cmd/doc"
@@ -59,6 +60,9 @@ Links GitHub PRs, branches, and commits to ClickUp tasks.`,
 
 	// Inbox
 	cmd.AddCommand(inbox.NewCmdInbox(f))
+
+	// Chat
+	cmd.AddCommand(chat.NewCmdChat(f))
 
 	// Utility commands
 	cmd.AddCommand(version.NewCmdVersion())
