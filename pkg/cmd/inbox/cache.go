@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/triptechtravel/clickup-cli/internal/clickup"
-	"github.com/triptechtravel/clickup-cli/internal/config"
+	"github.com/toppynl/clickup-cli/internal/clickup"
+	"github.com/toppynl/clickup-cli/internal/config"
 )
 
 const (

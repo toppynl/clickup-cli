@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/lithammer/fuzzysearch/fuzzy"
-	"github.com/triptechtravel/clickup-cli/internal/api"
-	"github.com/triptechtravel/clickup-cli/internal/apiv2"
+	"github.com/toppynl/clickup-cli/internal/api"
+	"github.com/toppynl/clickup-cli/internal/apiv2"
 )
 
 // MatchStatus finds the best matching status from available statuses using a tiered strategy:

@@ -86,7 +86,7 @@ var (
 	typesPkg = flag.String("types-pkg", "clickupv2", "types package name")
 	typesImp = flag.String("types-import", "", "types package import path (auto-detected if empty)")
 	outPath  = flag.String("out", "", "output file path")
-	module   = flag.String("module", "github.com/triptechtravel/clickup-cli", "Go module path")
+	module   = flag.String("module", "github.com/toppynl/clickup-cli", "Go module path")
 	fixMode  = flag.Bool("fix", false, "fix self-referencing types in generated code instead of generating wrappers")
 	fixGen   = flag.String("fix-gen", "", "path to generated types file (for -fix mode)")
 	fixOut   = flag.String("fix-out", "", "path to write fixes file (for -fix mode)")
@@ -392,7 +392,7 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/triptechtravel/clickup-cli/internal/api"
+	"github.com/toppynl/clickup-cli/internal/api"
 	{{ .TypesPkg }} "{{ .TypesImport }}"
 )
 

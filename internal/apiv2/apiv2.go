@@ -21,7 +21,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/triptechtravel/clickup-cli/internal/api"
+	"github.com/toppynl/clickup-cli/internal/api"
 )
 
 // do is a shared helper that sends a JSON request and decodes the response.

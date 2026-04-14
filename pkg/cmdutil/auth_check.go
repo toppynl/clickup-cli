@@ -2,7 +2,7 @@ package cmdutil
 
 import (
 	"github.com/spf13/cobra"
-	"github.com/triptechtravel/clickup-cli/internal/auth"
+	"github.com/toppynl/clickup-cli/internal/auth"
 )
 
 // NeedsAuth returns a pre-run function that validates authentication before command execution.

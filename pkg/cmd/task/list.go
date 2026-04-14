@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/triptechtravel/clickup-cli/internal/apiv2"
-	"github.com/triptechtravel/clickup-cli/internal/clickup"
-	"github.com/triptechtravel/clickup-cli/internal/tableprinter"
-	"github.com/triptechtravel/clickup-cli/pkg/cmdutil"
+	"github.com/toppynl/clickup-cli/internal/apiv2"
+	"github.com/toppynl/clickup-cli/internal/clickup"
+	"github.com/toppynl/clickup-cli/internal/tableprinter"
+	"github.com/toppynl/clickup-cli/pkg/cmdutil"
 )
 
 type listOptions struct {

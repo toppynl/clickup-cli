@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/triptechtravel/clickup-cli/api/clickupv3"
-	"github.com/triptechtravel/clickup-cli/internal/api"
+	"github.com/toppynl/clickup-cli/api/clickupv3"
+	"github.com/toppynl/clickup-cli/internal/api"
 )
 
 // ListAttachments fetches attachments for a task (or other entity) via the v3 API.

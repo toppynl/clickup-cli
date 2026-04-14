@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/triptechtravel/clickup-cli/internal/config"
+	"github.com/toppynl/clickup-cli/internal/config"
 )
 
 func TestCustomIDTaskQuery(t *testing.T) {

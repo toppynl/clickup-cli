@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/triptechtravel/clickup-cli/internal/api"
-	"github.com/triptechtravel/clickup-cli/internal/apiv2"
-	"github.com/triptechtravel/clickup-cli/internal/clickup"
+	"github.com/toppynl/clickup-cli/internal/api"
+	"github.com/toppynl/clickup-cli/internal/apiv2"
+	"github.com/toppynl/clickup-cli/internal/clickup"
 )
 
 // ResolveCurrentSprintListID finds the current sprint's list ID in the given folder.

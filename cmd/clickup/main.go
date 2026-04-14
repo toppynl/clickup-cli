@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/triptechtravel/clickup-cli/internal/app"
+	"github.com/toppynl/clickup-cli/internal/app"
 )
 
 func main() {

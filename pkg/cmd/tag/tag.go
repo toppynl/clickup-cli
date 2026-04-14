@@ -2,7 +2,7 @@ package tag
 
 import (
 	"github.com/spf13/cobra"
-	"github.com/triptechtravel/clickup-cli/pkg/cmdutil"
+	"github.com/toppynl/clickup-cli/pkg/cmdutil"
 )
 
 // NewCmdTag returns the top-level "tag" command.

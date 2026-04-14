@@ -2,7 +2,7 @@ package chat
 
 import (
 	"github.com/spf13/cobra"
-	"github.com/triptechtravel/clickup-cli/pkg/cmdutil"
+	"github.com/toppynl/clickup-cli/pkg/cmdutil"
 )
 
 // NewCmdChat returns the top-level "chat" command that groups chat subcommands.

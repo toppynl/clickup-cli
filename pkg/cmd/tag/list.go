@@ -5,8 +5,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/triptechtravel/clickup-cli/internal/tableprinter"
-	"github.com/triptechtravel/clickup-cli/pkg/cmdutil"
+	"github.com/toppynl/clickup-cli/internal/tableprinter"
+	"github.com/toppynl/clickup-cli/pkg/cmdutil"
 )
 
 type listOptions struct {

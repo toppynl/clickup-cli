@@ -6,9 +6,9 @@ import (
 	"io"
 	"strings"
 
-	clickupv2 "github.com/triptechtravel/clickup-cli/api/clickupv2"
-	"github.com/triptechtravel/clickup-cli/internal/api"
-	"github.com/triptechtravel/clickup-cli/internal/apiv2"
+	clickupv2 "github.com/toppynl/clickup-cli/api/clickupv2"
+	"github.com/toppynl/clickup-cli/internal/api"
+	"github.com/toppynl/clickup-cli/internal/apiv2"
 )
 
 // FetchSpaceTags fetches the available tag names for a ClickUp space.

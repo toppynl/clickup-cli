@@ -10,9 +10,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	clickupv3 "github.com/triptechtravel/clickup-cli/api/clickupv3"
-	"github.com/triptechtravel/clickup-cli/internal/api"
-	"github.com/triptechtravel/clickup-cli/internal/apiv3"
+	clickupv3 "github.com/toppynl/clickup-cli/api/clickupv3"
+	"github.com/toppynl/clickup-cli/internal/api"
+	"github.com/toppynl/clickup-cli/internal/apiv3"
 )
 
 // testV3Server creates a test server and a client configured to talk to it.

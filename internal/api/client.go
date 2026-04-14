@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/triptechtravel/clickup-cli/internal/build"
+	"github.com/toppynl/clickup-cli/internal/build"
 )
 
 // Client provides authenticated access to the ClickUp API with rate limiting.

@@ -2,7 +2,7 @@ package auth
 
 import (
 	"github.com/spf13/cobra"
-	"github.com/triptechtravel/clickup-cli/pkg/cmdutil"
+	"github.com/toppynl/clickup-cli/pkg/cmdutil"
 )
 
 // NewCmdAuth returns the top-level "auth" command that groups login, logout, and status.

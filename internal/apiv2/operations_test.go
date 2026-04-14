@@ -11,8 +11,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/triptechtravel/clickup-cli/api/clickupv2"
-	"github.com/triptechtravel/clickup-cli/internal/api"
+	"github.com/toppynl/clickup-cli/api/clickupv2"
+	"github.com/toppynl/clickup-cli/internal/api"
 )
 
 func testServer(t *testing.T, handler http.HandlerFunc) (*httptest.Server, *api.Client) {

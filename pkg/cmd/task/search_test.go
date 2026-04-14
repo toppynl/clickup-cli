@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/triptechtravel/clickup-cli/internal/testutil"
+	"github.com/toppynl/clickup-cli/internal/testutil"
 )
 
 func TestNewCmdSearch_Flags(t *testing.T) {

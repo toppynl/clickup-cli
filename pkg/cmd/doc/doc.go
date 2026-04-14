@@ -2,7 +2,7 @@ package doc
 
 import (
 	"github.com/spf13/cobra"
-	"github.com/triptechtravel/clickup-cli/pkg/cmdutil"
+	"github.com/toppynl/clickup-cli/pkg/cmdutil"
 )
 
 // NewCmdDoc returns the top-level "doc" command that groups Docs subcommands.

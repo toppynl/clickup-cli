@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/triptechtravel/clickup-cli/internal/clickup"
-	"github.com/triptechtravel/clickup-cli/pkg/cmdutil"
+	"github.com/toppynl/clickup-cli/internal/clickup"
+	"github.com/toppynl/clickup-cli/pkg/cmdutil"
 )
 
 func TestNewCmdInbox_Defaults(t *testing.T) {

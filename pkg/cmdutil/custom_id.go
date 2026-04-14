@@ -3,8 +3,8 @@ package cmdutil
 import (
 	"fmt"
 
-	"github.com/triptechtravel/clickup-cli/internal/apiv2"
-	"github.com/triptechtravel/clickup-cli/internal/config"
+	"github.com/toppynl/clickup-cli/internal/apiv2"
+	"github.com/toppynl/clickup-cli/internal/config"
 )
 
 // CustomIDTaskQuery returns a query string for task endpoints supporting

@@ -3,7 +3,7 @@ package auth
 import (
 	"fmt"
 
-	"github.com/triptechtravel/clickup-cli/internal/config"
+	"github.com/toppynl/clickup-cli/internal/config"
 	"github.com/zalando/go-keyring"
 )
 

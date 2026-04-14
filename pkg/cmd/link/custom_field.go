@@ -1,7 +1,7 @@
 package link
 
 import (
-	"github.com/triptechtravel/clickup-cli/pkg/cmdutil"
+	"github.com/toppynl/clickup-cli/pkg/cmdutil"
 )
 
 // upsertLink stores the link entry in the task description.

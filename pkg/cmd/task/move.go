@@ -5,11 +5,11 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	clickupv3 "github.com/triptechtravel/clickup-cli/api/clickupv3"
-	"github.com/triptechtravel/clickup-cli/internal/apiv2"
-	"github.com/triptechtravel/clickup-cli/internal/apiv3"
-	"github.com/triptechtravel/clickup-cli/internal/git"
-	"github.com/triptechtravel/clickup-cli/pkg/cmdutil"
+	clickupv3 "github.com/toppynl/clickup-cli/api/clickupv3"
+	"github.com/toppynl/clickup-cli/internal/apiv2"
+	"github.com/toppynl/clickup-cli/internal/apiv3"
+	"github.com/toppynl/clickup-cli/internal/git"
+	"github.com/toppynl/clickup-cli/pkg/cmdutil"
 )
 
 type moveOptions struct {
