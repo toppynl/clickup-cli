@@ -20,9 +20,9 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
-	"github.com/triptechtravel/clickup-cli/internal/iostreams"
-	"github.com/triptechtravel/clickup-cli/pkg/cmd/root"
-	"github.com/triptechtravel/clickup-cli/pkg/cmdutil"
+	"github.com/toppynl/clickup-cli/internal/iostreams"
+	"github.com/toppynl/clickup-cli/pkg/cmd/root"
+	"github.com/toppynl/clickup-cli/pkg/cmdutil"
 )
 
 func main() {

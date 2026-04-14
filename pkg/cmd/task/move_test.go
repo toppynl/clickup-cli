@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/triptechtravel/clickup-cli/internal/testutil"
+	"github.com/toppynl/clickup-cli/internal/testutil"
 )
 
 func TestNewCmdMove_Flags(t *testing.T) {

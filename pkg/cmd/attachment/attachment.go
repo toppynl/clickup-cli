@@ -2,7 +2,7 @@ package attachment
 
 import (
 	"github.com/spf13/cobra"
-	"github.com/triptechtravel/clickup-cli/pkg/cmdutil"
+	"github.com/toppynl/clickup-cli/pkg/cmdutil"
 )
 
 // NewCmdAttachment returns the top-level "attachment" command that groups list and add.

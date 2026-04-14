@@ -8,10 +8,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/triptechtravel/clickup-cli/internal/api"
-	"github.com/triptechtravel/clickup-cli/internal/clickup"
-	"github.com/triptechtravel/clickup-cli/internal/text"
-	"github.com/triptechtravel/clickup-cli/pkg/cmdutil"
+	"github.com/toppynl/clickup-cli/internal/api"
+	"github.com/toppynl/clickup-cli/internal/clickup"
+	"github.com/toppynl/clickup-cli/internal/text"
+	"github.com/toppynl/clickup-cli/pkg/cmdutil"
 )
 
 // UserResolver resolves a user input (name, username, or "me") to a numeric

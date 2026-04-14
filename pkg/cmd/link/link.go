@@ -2,7 +2,7 @@ package link
 
 import (
 	"github.com/spf13/cobra"
-	"github.com/triptechtravel/clickup-cli/pkg/cmdutil"
+	"github.com/toppynl/clickup-cli/pkg/cmdutil"
 )
 
 // NewCmdLink returns the top-level "link" command that groups pr, branch, and commit subcommands.

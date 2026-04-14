@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/triptechtravel/clickup-cli/internal/api"
-	"github.com/triptechtravel/clickup-cli/internal/apiv2"
+	"github.com/toppynl/clickup-cli/internal/api"
+	"github.com/toppynl/clickup-cli/internal/apiv2"
 )
 
 // RecentTask represents a recently updated task with location context.

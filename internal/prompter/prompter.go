@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/triptechtravel/clickup-cli/internal/iostreams"
+	"github.com/toppynl/clickup-cli/internal/iostreams"
 )
 
 // Prompter provides interactive prompts.

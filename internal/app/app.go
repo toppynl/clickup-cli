@@ -4,10 +4,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/triptechtravel/clickup-cli/internal/api"
-	"github.com/triptechtravel/clickup-cli/internal/iostreams"
-	"github.com/triptechtravel/clickup-cli/pkg/cmd/root"
-	"github.com/triptechtravel/clickup-cli/pkg/cmdutil"
+	"github.com/toppynl/clickup-cli/internal/api"
+	"github.com/toppynl/clickup-cli/internal/iostreams"
+	"github.com/toppynl/clickup-cli/pkg/cmd/root"
+	"github.com/toppynl/clickup-cli/pkg/cmdutil"
 )
 
 // Run bootstraps and executes the CLI. Returns exit code.

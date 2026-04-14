@@ -7,8 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/triptechtravel/clickup-cli/internal/config"
-	"github.com/triptechtravel/clickup-cli/internal/testutil"
+	"github.com/toppynl/clickup-cli/internal/config"
+	"github.com/toppynl/clickup-cli/internal/testutil"
 )
 
 var sampleListsJSON = `{

@@ -6,11 +6,11 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/triptechtravel/clickup-cli/internal/apiv2"
-	"github.com/triptechtravel/clickup-cli/internal/clickup"
-	"github.com/triptechtravel/clickup-cli/internal/config"
-	"github.com/triptechtravel/clickup-cli/internal/prompter"
-	"github.com/triptechtravel/clickup-cli/pkg/cmdutil"
+	"github.com/toppynl/clickup-cli/internal/apiv2"
+	"github.com/toppynl/clickup-cli/internal/clickup"
+	"github.com/toppynl/clickup-cli/internal/config"
+	"github.com/toppynl/clickup-cli/internal/prompter"
+	"github.com/toppynl/clickup-cli/pkg/cmdutil"
 )
 
 // NewCmdListSelect returns the list select command.

@@ -2,7 +2,7 @@ package folder
 
 import (
 	"github.com/spf13/cobra"
-	"github.com/triptechtravel/clickup-cli/pkg/cmdutil"
+	"github.com/toppynl/clickup-cli/pkg/cmdutil"
 )
 
 // NewCmdFolder returns the folder parent command.

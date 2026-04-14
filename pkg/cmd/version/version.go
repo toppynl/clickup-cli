@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/triptechtravel/clickup-cli/internal/build"
+	"github.com/toppynl/clickup-cli/internal/build"
 )
 
 // NewCmdVersion returns the version command.

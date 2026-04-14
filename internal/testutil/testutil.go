@@ -14,10 +14,10 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
-	"github.com/triptechtravel/clickup-cli/internal/api"
-	"github.com/triptechtravel/clickup-cli/internal/config"
-	"github.com/triptechtravel/clickup-cli/internal/iostreams"
-	"github.com/triptechtravel/clickup-cli/pkg/cmdutil"
+	"github.com/toppynl/clickup-cli/internal/api"
+	"github.com/toppynl/clickup-cli/internal/config"
+	"github.com/toppynl/clickup-cli/internal/iostreams"
+	"github.com/toppynl/clickup-cli/pkg/cmdutil"
 )
 
 // TestFactory bundles everything needed for command-level tests.

@@ -12,13 +12,13 @@ import (
 
 	"github.com/lithammer/fuzzysearch/fuzzy"
 	"github.com/spf13/cobra"
-	"github.com/triptechtravel/clickup-cli/internal/api"
-	"github.com/triptechtravel/clickup-cli/internal/apiv2"
-	"github.com/triptechtravel/clickup-cli/internal/clickup"
-	"github.com/triptechtravel/clickup-cli/internal/iostreams"
-	"github.com/triptechtravel/clickup-cli/internal/prompter"
-	"github.com/triptechtravel/clickup-cli/internal/tableprinter"
-	"github.com/triptechtravel/clickup-cli/pkg/cmdutil"
+	"github.com/toppynl/clickup-cli/internal/api"
+	"github.com/toppynl/clickup-cli/internal/apiv2"
+	"github.com/toppynl/clickup-cli/internal/clickup"
+	"github.com/toppynl/clickup-cli/internal/iostreams"
+	"github.com/toppynl/clickup-cli/internal/prompter"
+	"github.com/toppynl/clickup-cli/internal/tableprinter"
+	"github.com/toppynl/clickup-cli/pkg/cmdutil"
 )
 
 type searchOptions struct {

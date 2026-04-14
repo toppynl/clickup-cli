@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/triptechtravel/clickup-cli/pkg/cmdutil"
+	"github.com/toppynl/clickup-cli/pkg/cmdutil"
 )
 
 // validParentTypes are the accepted string values for --parent-type.

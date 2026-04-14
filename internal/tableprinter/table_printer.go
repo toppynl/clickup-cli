@@ -5,7 +5,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/triptechtravel/clickup-cli/internal/iostreams"
+	"github.com/toppynl/clickup-cli/internal/iostreams"
 )
 
 // TablePrinter renders TTY-aware table output.

@@ -9,8 +9,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/triptechtravel/clickup-cli/internal/git"
-	"github.com/triptechtravel/clickup-cli/internal/testutil"
+	"github.com/toppynl/clickup-cli/internal/git"
+	"github.com/toppynl/clickup-cli/internal/testutil"
 )
 
 func TestAddCommand_SingleFile(t *testing.T) {

@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"path/filepath"
 
-	"github.com/triptechtravel/clickup-cli/internal/api"
+	"github.com/toppynl/clickup-cli/internal/api"
 )
 
 // AttachmentResponse is the response from CreateTaskAttachment.

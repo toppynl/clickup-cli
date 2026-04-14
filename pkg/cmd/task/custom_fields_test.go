@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/triptechtravel/clickup-cli/internal/clickup"
+	"github.com/toppynl/clickup-cli/internal/clickup"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

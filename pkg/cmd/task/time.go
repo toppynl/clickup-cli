@@ -11,13 +11,13 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	clickupv2 "github.com/triptechtravel/clickup-cli/api/clickupv2"
-	"github.com/triptechtravel/clickup-cli/internal/api"
-	"github.com/triptechtravel/clickup-cli/internal/apiv2"
-	"github.com/triptechtravel/clickup-cli/internal/git"
-	"github.com/triptechtravel/clickup-cli/internal/prompter"
-	"github.com/triptechtravel/clickup-cli/internal/tableprinter"
-	"github.com/triptechtravel/clickup-cli/pkg/cmdutil"
+	clickupv2 "github.com/toppynl/clickup-cli/api/clickupv2"
+	"github.com/toppynl/clickup-cli/internal/api"
+	"github.com/toppynl/clickup-cli/internal/apiv2"
+	"github.com/toppynl/clickup-cli/internal/git"
+	"github.com/toppynl/clickup-cli/internal/prompter"
+	"github.com/toppynl/clickup-cli/internal/tableprinter"
+	"github.com/toppynl/clickup-cli/pkg/cmdutil"
 )
 
 // NewCmdTime returns the parent command for time tracking subcommands.

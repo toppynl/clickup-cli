@@ -10,11 +10,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	clickupv3 "github.com/triptechtravel/clickup-cli/api/clickupv3"
-	"github.com/triptechtravel/clickup-cli/internal/config"
-	"github.com/triptechtravel/clickup-cli/internal/iostreams"
-	"github.com/triptechtravel/clickup-cli/internal/testutil"
-	"github.com/triptechtravel/clickup-cli/pkg/cmdutil"
+	clickupv3 "github.com/toppynl/clickup-cli/api/clickupv3"
+	"github.com/toppynl/clickup-cli/internal/config"
+	"github.com/toppynl/clickup-cli/internal/iostreams"
+	"github.com/toppynl/clickup-cli/internal/testutil"
+	"github.com/toppynl/clickup-cli/pkg/cmdutil"
 )
 
 // JSON fixtures use the auto-gen clickupv3 field names and types.

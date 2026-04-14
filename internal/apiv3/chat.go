@@ -11,8 +11,8 @@ import (
 	"context"
 	"fmt"
 
-	clickupv3 "github.com/triptechtravel/clickup-cli/api/clickupv3"
-	"github.com/triptechtravel/clickup-cli/internal/api"
+	clickupv3 "github.com/toppynl/clickup-cli/api/clickupv3"
+	"github.com/toppynl/clickup-cli/internal/api"
 )
 
 // ListChatChannels retrieves Chat channels for a workspace with typed response.

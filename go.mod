@@ -1,4 +1,4 @@
-module github.com/triptechtravel/clickup-cli
+module github.com/toppynl/clickup-cli
 
 go 1.25.6
 

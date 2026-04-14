@@ -3,11 +3,11 @@ package cmdutil
 import (
 	"sync"
 
-	"github.com/triptechtravel/clickup-cli/internal/api"
-	"github.com/triptechtravel/clickup-cli/internal/auth"
-	"github.com/triptechtravel/clickup-cli/internal/config"
-	gitpkg "github.com/triptechtravel/clickup-cli/internal/git"
-	"github.com/triptechtravel/clickup-cli/internal/iostreams"
+	"github.com/toppynl/clickup-cli/internal/api"
+	"github.com/toppynl/clickup-cli/internal/auth"
+	"github.com/toppynl/clickup-cli/internal/config"
+	gitpkg "github.com/toppynl/clickup-cli/internal/git"
+	"github.com/toppynl/clickup-cli/internal/iostreams"
 )
 
 // Factory provides lazy-initialized dependencies to commands.

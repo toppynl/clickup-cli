@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/triptechtravel/clickup-cli/internal/apiv2"
-	"github.com/triptechtravel/clickup-cli/internal/git"
-	"github.com/triptechtravel/clickup-cli/internal/prompter"
-	"github.com/triptechtravel/clickup-cli/pkg/cmdutil"
+	"github.com/toppynl/clickup-cli/internal/apiv2"
+	"github.com/toppynl/clickup-cli/internal/git"
+	"github.com/toppynl/clickup-cli/internal/prompter"
+	"github.com/toppynl/clickup-cli/pkg/cmdutil"
 )
 
 const (
