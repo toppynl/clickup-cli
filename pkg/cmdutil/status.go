@@ -81,18 +81,6 @@ func MatchStatus(target string, available []string) (string, error) {
 		target, strings.Join(available, ", "))
 }
 
-// spaceStatusResponse represents the response from GET /space/{id} containing statuses.
-type spaceStatusResponse struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Statuses []struct {
-		ID         string `json:"id"`
-		Status     string `json:"status"`
-		Color      string `json:"color"`
-		Type       string `json:"type"`
-		Orderindex int    `json:"orderindex"`
-	} `json:"statuses"`
-}
 
 // ValidateStatus validates a status string against the available statuses for a task's list,
 // falling back to space-level statuses if the list has no custom overrides.
@@ -152,8 +140,8 @@ func matchAndReport(status string, statusNames []string, w io.Writer) (string, e
 
 // FetchSpaceStatuses fetches the available status names for a ClickUp space.
 func FetchSpaceStatuses(client *api.Client, spaceID string) ([]string, error) {
-	var spaceResp spaceStatusResponse
-	if err := apiv2.Do(context.Background(), client, "GET", fmt.Sprintf("space/%s", spaceID), nil, &spaceResp); err != nil {
+	spaceResp, err := apiv2.GetSpace(context.Background(), client, spaceID)
+	if err != nil {
 		return nil, fmt.Errorf("failed to fetch space statuses: %w", err)
 	}
 

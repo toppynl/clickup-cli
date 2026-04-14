@@ -17,19 +17,6 @@ type listOptions struct {
 	json    cmdutil.JSONFlags
 }
 
-// listSpaceResponse represents the response from GET /space/{id} for the list command.
-type listSpaceResponse struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Statuses []struct {
-		ID         string `json:"id"`
-		Status     string `json:"status"`
-		Color      string `json:"color"`
-		Type       string `json:"type"`
-		Orderindex int    `json:"orderindex"`
-	} `json:"statuses"`
-}
-
 // statusEntry represents a single status for JSON output.
 type statusEntry struct {
 	ID         string `json:"id"`
@@ -99,8 +86,8 @@ func listRun(opts *listOptions) error {
 	ctx := context.Background()
 
 	// Fetch space with statuses.
-	var spaceResp listSpaceResponse
-	if err := apiv2.Do(ctx, client, "GET", fmt.Sprintf("space/%s", spaceID), nil, &spaceResp); err != nil {
+	spaceResp, err := apiv2.GetSpace(ctx, client, spaceID)
+	if err != nil {
 		return fmt.Errorf("failed to fetch space: %w", err)
 	}
 

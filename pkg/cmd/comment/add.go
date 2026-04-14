@@ -139,6 +139,9 @@ func addRun(opts *addOptions) error {
 		payload = map[string]string{"comment_text": body}
 	}
 
+	// TODO: swap to generated wrapper — CreateTaskComment accepts only
+	// CommentText string, but this code sends structured comment blocks
+	// (with @mention tags) as the payload when mentions are resolved.
 	ctx := context.Background()
 	if err := apiv2.Do(ctx, client, "POST", commentPath, payload, nil); err != nil {
 		return fmt.Errorf("API request failed: %w", err)

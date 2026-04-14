@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	clickupv2 "github.com/triptechtravel/clickup-cli/api/clickupv2"
 	"github.com/triptechtravel/clickup-cli/internal/api"
 	"github.com/triptechtravel/clickup-cli/internal/apiv2"
 	"github.com/triptechtravel/clickup-cli/internal/git"
@@ -159,33 +160,36 @@ func runTimeLog(f *cmdutil.Factory, opts *timeLogOptions) error {
 		return fmt.Errorf("workspace not configured. Run 'clickup config set workspace <id>' first")
 	}
 
-	// Build request body.
-	body := map[string]interface{}{
-		"description": opts.description,
-		"start":       startMs,
-		"duration":    durationMs,
-		"billable":    opts.billable,
-		"tid":         taskID,
+	// Build typed request.
+	req := &clickupv2.CreateatimeentryJSONRequest{
+		Description: &opts.description,
+		Start:       int(startMs),
+		Duration:    int(durationMs),
+		Billable:    &opts.billable,
+		Tid:         &taskID,
 	}
 	if opts.assignee != "" {
 		assigneeID, err := strconv.Atoi(opts.assignee)
 		if err != nil {
 			return fmt.Errorf("invalid assignee ID %q: must be a numeric user ID", opts.assignee)
 		}
-		body["assignee"] = assigneeID
+		req.Assignee = &assigneeID
 	}
 	client, err := f.ApiClient()
 	if err != nil {
 		return err
 	}
 
+	// TODO: swap to generated wrapper — Createatimeentry response type lacks
+	// the data.id wrapper the real API returns, so we keep apiv2.Do with a
+	// local struct to extract the entry ID.
 	ctx := context.Background()
 	var logResult struct {
 		Data struct {
 			ID string `json:"id"`
 		} `json:"data"`
 	}
-	if err := apiv2.Do(ctx, client, "POST", fmt.Sprintf("team/%s/time_entries", teamID), body, &logResult); err != nil {
+	if err := apiv2.Do(ctx, client, "POST", fmt.Sprintf("team/%s/time_entries", teamID), req, &logResult); err != nil {
 		return fmt.Errorf("request failed: %w", err)
 	}
 	entryID := logResult.Data.ID
@@ -298,12 +302,12 @@ func runBulkTimeLog(f *cmdutil.Factory, opts *timeLogOptions) error {
 		parsed := git.ParseTaskID(entry.TaskID)
 		taskID := parsed.ID
 
-		body := map[string]interface{}{
-			"description": entry.Description,
-			"start":       startMs,
-			"duration":    durationMs,
-			"billable":    entry.Billable,
-			"tid":         taskID,
+		req := &clickupv2.CreateatimeentryJSONRequest{
+			Description: &entry.Description,
+			Start:       int(startMs),
+			Duration:    int(durationMs),
+			Billable:    &entry.Billable,
+			Tid:         &taskID,
 		}
 
 		// Use entry-level assignee, fall back to flag-level.
@@ -318,11 +322,11 @@ func runBulkTimeLog(f *cmdutil.Factory, opts *timeLogOptions) error {
 					cs.Red("✗"), i+1, total, assigneeStr, entry.TaskID)
 				continue
 			}
-			body["assignee"] = assigneeID
+			req.Assignee = &assigneeID
 		}
 
 		ctx := context.Background()
-		if err := apiv2.Do(ctx, client, "POST", fmt.Sprintf("team/%s/time_entries", teamID), body, nil); err != nil {
+		if _, err := apiv2.Createatimeentry(ctx, client, teamID, req); err != nil {
 			fmt.Fprintf(ios.ErrOut, "%s (%d/%d) Failed: task %s: %v\n",
 				cs.Red("✗"), i+1, total, entry.TaskID, err)
 			continue
@@ -492,6 +496,9 @@ func runTimeListPerTask(f *cmdutil.Factory, opts *timeListOptions) error {
 		return err
 	}
 
+	// TODO: swap to generated wrapper — Gettimeentrieswithinadaterange response
+	// type has User as any (not struct with Username), Task as struct (not pointer),
+	// and lacks TaskLocation, so the local timeEntry struct is needed for rendering.
 	ctx := context.Background()
 	var result timeEntryResponse
 	if err := apiv2.Do(ctx, client, "GET", fmt.Sprintf("team/%s/time_entries?task_id=%s", teamID, taskID), nil, &result); err != nil {
@@ -721,6 +728,10 @@ func enrichTimeEntriesWithTags(client *api.Client, entries []timeEntry) ([]timeE
 }
 
 // fetchTimeEntries performs a single GET request and returns the time entries.
+//
+// TODO: swap to generated wrapper — Gettimeentrieswithinadaterange response
+// type has User as any (not struct with Username), Task as struct (not pointer),
+// and lacks TaskLocation, so the local timeEntry struct is needed for rendering.
 func fetchTimeEntries(ctx context.Context, client *api.Client, path string) ([]timeEntry, error) {
 	var result timeEntryResponse
 	if err := apiv2.Do(ctx, client, "GET", path, nil, &result); err != nil {
@@ -985,7 +996,7 @@ func runTimeDelete(opts *timeDeleteOptions) error {
 	}
 
 	ctx := context.Background()
-	if err := apiv2.Do(ctx, client, "DELETE", fmt.Sprintf("team/%s/time_entries/%s", teamID, opts.entryID), nil, nil); err != nil {
+	if _, err := apiv2.DeleteatimeEntry(ctx, client, teamID, opts.entryID); err != nil {
 		return fmt.Errorf("API request failed: %w", err)
 	}
 

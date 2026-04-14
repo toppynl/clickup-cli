@@ -18,21 +18,6 @@ type addOptions struct {
 	confirm bool
 }
 
-// spaceResponse represents the full response from GET /space/{id}.
-type spaceResponse struct {
-	ID       string         `json:"id"`
-	Name     string         `json:"name"`
-	Statuses []spaceStatus  `json:"statuses"`
-}
-
-// spaceStatus represents a single status in the space response.
-type spaceStatus struct {
-	ID         string `json:"id,omitempty"`
-	Status     string `json:"status"`
-	Color      string `json:"color"`
-	Type       string `json:"type"`
-	Orderindex int    `json:"orderindex"`
-}
 
 // NewCmdAdd returns the "status add" command.
 func NewCmdAdd(f *cmdutil.Factory) *cobra.Command {
@@ -100,8 +85,8 @@ func addRun(opts *addOptions) error {
 	ctx := context.Background()
 
 	// Fetch current space with statuses.
-	var space spaceResponse
-	if err := apiv2.Do(ctx, client, "GET", fmt.Sprintf("space/%s", spaceID), nil, &space); err != nil {
+	space, err := apiv2.GetSpace(ctx, client, spaceID)
+	if err != nil {
 		return fmt.Errorf("failed to fetch space: %w", err)
 	}
 
@@ -193,6 +178,7 @@ func addRun(opts *addOptions) error {
 	}
 
 	// PUT /space/{id} with updated statuses.
+	// TODO: swap to generated wrapper when types align (UpdateSpaceJSONRequest lacks Statuses field)
 	payload := map[string]interface{}{
 		"statuses": updatedStatuses,
 	}

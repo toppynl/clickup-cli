@@ -99,6 +99,9 @@ func listRun(opts *listOptions) error {
 		return cfgErr
 	}
 
+	// TODO: swap to generated wrapper — GetTaskComments response type has
+	// User as any (not struct with Username) and ReplyCount as *string (not int),
+	// so the local commentData struct is needed for rendering.
 	listPath := fmt.Sprintf("task/%s/comment%s", taskID, cmdutil.CustomIDQueryParam(cfg, isCustomID))
 	ctx := context.Background()
 	var result commentResponse
@@ -163,6 +166,8 @@ type commentRepliesResponse struct {
 	Replies  []commentData `json:"replies"`
 }
 
+// TODO: swap to generated wrapper — GetThreadedComments returns only error
+// (no response body), so we keep apiv2.Do with a local struct to parse replies.
 func fetchCommentReplies(client *api.Client, commentID string) ([]commentData, error) {
 	ctx := context.Background()
 	var result commentRepliesResponse

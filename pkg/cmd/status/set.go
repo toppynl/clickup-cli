@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	clickupv2 "github.com/triptechtravel/clickup-cli/api/clickupv2"
 	"github.com/triptechtravel/clickup-cli/internal/apiv2"
 	"github.com/triptechtravel/clickup-cli/internal/git"
 	"github.com/triptechtravel/clickup-cli/pkg/cmdutil"
@@ -106,8 +107,7 @@ func setRun(opts *setOptions) error {
 	}
 
 	// Update the task status.
-	payload := map[string]string{"status": matched}
-	if err := apiv2.Do(ctx, client, "PUT", fmt.Sprintf("task/%s", task.ID), payload, nil); err != nil {
+	if _, err := apiv2.UpdateTask(ctx, client, task.ID, &clickupv2.UpdateTaskJSONRequest{Status: &matched}); err != nil {
 		return fmt.Errorf("failed to update task status: %w", err)
 	}
 

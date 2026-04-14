@@ -72,7 +72,7 @@ func deleteRun(opts *deleteOptions) error {
 	}
 
 	ctx := context.Background()
-	if err := apiv2.Do(ctx, client, "DELETE", fmt.Sprintf("comment/%s", opts.commentID), nil, nil); err != nil {
+	if _, err := apiv2.DeleteComment(ctx, client, opts.commentID); err != nil {
 		return fmt.Errorf("API request failed: %w", err)
 	}
 

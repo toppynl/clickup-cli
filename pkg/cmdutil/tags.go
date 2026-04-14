@@ -6,21 +6,15 @@ import (
 	"io"
 	"strings"
 
+	clickupv2 "github.com/triptechtravel/clickup-cli/api/clickupv2"
 	"github.com/triptechtravel/clickup-cli/internal/api"
 	"github.com/triptechtravel/clickup-cli/internal/apiv2"
 )
 
-// spaceTagsResponse represents the response from GET /space/{id}/tag.
-type spaceTagsResponse struct {
-	Tags []struct {
-		Name string `json:"name"`
-	} `json:"tags"`
-}
-
 // FetchSpaceTags fetches the available tag names for a ClickUp space.
 func FetchSpaceTags(client *api.Client, spaceID string) ([]string, error) {
-	var tagsResp spaceTagsResponse
-	if err := apiv2.Do(context.Background(), client, "GET", fmt.Sprintf("space/%s/tag", spaceID), nil, &tagsResp); err != nil {
+	tagsResp, err := apiv2.GetSpaceTags(context.Background(), client, spaceID)
+	if err != nil {
 		return nil, fmt.Errorf("failed to fetch space tags: %w", err)
 	}
 
@@ -34,10 +28,10 @@ func FetchSpaceTags(client *api.Client, spaceID string) ([]string, error) {
 // CreateSpaceTag creates a new tag in a ClickUp space.
 // POST /api/v2/space/{space_id}/tag with body {"tag":{"name":"tag-name"}}
 func CreateSpaceTag(client *api.Client, spaceID, tagName string) error {
-	body := map[string]interface{}{
-		"tag": map[string]string{"name": tagName},
+	req := &clickupv2.CreateSpaceTagJSONRequest{
+		Tag: clickupv2.PostV2SpaceSpaceIDTagRequest{Name: tagName},
 	}
-	if err := apiv2.Do(context.Background(), client, "POST", fmt.Sprintf("space/%s/tag", spaceID), body, nil); err != nil {
+	if _, err := apiv2.CreateSpaceTag(context.Background(), client, spaceID, req); err != nil {
 		return fmt.Errorf("failed to create tag: %w", err)
 	}
 	return nil

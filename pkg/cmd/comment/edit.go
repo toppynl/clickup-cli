@@ -71,6 +71,9 @@ func editRun(opts *editOptions) error {
 		return err
 	}
 
+	// TODO: swap to generated wrapper — UpdateComment requires Assignee (int)
+	// and Resolved (bool) fields which would zero-out existing values when only
+	// updating comment text.
 	ctx := context.Background()
 	payload := map[string]string{"comment_text": body}
 	if err := apiv2.Do(ctx, client, "PUT", fmt.Sprintf("comment/%s", opts.commentID), payload, nil); err != nil {

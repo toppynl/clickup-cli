@@ -97,6 +97,9 @@ func replyRun(opts *replyOptions) error {
 		payload = map[string]string{"comment_text": body}
 	}
 
+	// TODO: swap to generated wrapper — no generated POST function for
+	// comment/{id}/reply exists, and the payload uses structured comment
+	// blocks for @mentions (same issue as comment add).
 	ctx := context.Background()
 	if err = apiv2.Do(ctx, client, "POST", replyPath, payload, nil); err != nil {
 		return fmt.Errorf("API request failed: %w", err)
