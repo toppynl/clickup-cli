@@ -104,9 +104,11 @@ func runCreate(f *cmdutil.Factory, opts *createOptions) error {
 
 	if opts.visibility != "" {
 		v := clickupv3.PublicDocsCreateDocOptionsDtoVisibilityOneOf0(strings.ToUpper(opts.visibility))
-		req.Visibility = &clickupv3.PublicDocsCreateDocOptionsDtoVisibility{
-			PublicDocsCreateDocOptionsDtoVisibilityOneOf0: &v,
+		var vis clickupv3.PublicDocsCreateDocOptionsDtoVisibility
+		if err := vis.FromPublicDocsCreateDocOptionsDtoVisibilityOneOf0(v); err != nil {
+			return fmt.Errorf("invalid visibility %q: %w", opts.visibility, err)
 		}
+		req.Visibility = &vis
 	}
 
 	ctx := context.Background()
