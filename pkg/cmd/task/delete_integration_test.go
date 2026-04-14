@@ -57,6 +57,42 @@ func TestDeleteCommand_WithYesFlag(t *testing.T) {
 	assert.Contains(t, out, "deleted")
 }
 
+func TestDeleteCommand_Bulk(t *testing.T) {
+	tf := testutil.NewTestFactory(t)
+
+	var deleteCount atomic.Int32
+
+	for _, id := range []string{"task1", "task2", "task3"} {
+		id := id
+		handler := func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("X-RateLimit-Remaining", "99")
+
+			switch r.Method {
+			case "GET":
+				w.Write([]byte(`{"id":"` + id + `","name":"Task ` + id + `","status":{"status":"open"},"priority":null,"creator":{"id":1},"assignees":[],"tags":[],"url":"https://app.clickup.com/t/` + id + `"}`))
+			case "DELETE":
+				deleteCount.Add(1)
+				w.WriteHeader(200)
+				w.Write([]byte(`{}`))
+			default:
+				w.WriteHeader(http.StatusMethodNotAllowed)
+			}
+		}
+		tf.HandleFunc("task/"+id, handler)
+		tf.HandleFunc("task/"+id+"/", handler)
+	}
+
+	cmd := NewCmdDelete(tf.Factory)
+	err := testutil.RunCommand(t, cmd, "task1", "task2", "task3", "--yes")
+	require.NoError(t, err)
+
+	assert.Equal(t, int32(3), deleteCount.Load(), "all 3 tasks should be deleted")
+
+	out := tf.OutBuf.String()
+	assert.Contains(t, out, "Deleted 3/3 tasks")
+}
+
 func TestDeleteCommand_NonInteractiveProceeds(t *testing.T) {
 	tf := testutil.NewTestFactory(t)
 

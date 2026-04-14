@@ -11,6 +11,7 @@ import (
 
 	"github.com/raksul/go-clickup/clickup"
 	"github.com/spf13/cobra"
+	"github.com/triptechtravel/clickup-cli/internal/api"
 	"github.com/triptechtravel/clickup-cli/internal/git"
 	"github.com/triptechtravel/clickup-cli/internal/iostreams"
 	"github.com/triptechtravel/clickup-cli/internal/text"
@@ -27,8 +28,9 @@ type subtaskInfo struct {
 	Assignees []struct {
 		Username string `json:"username"`
 	} `json:"assignees"`
-	StartDate string       `json:"start_date"`
+	StartDate string        `json:"start_date"`
 	DueDate   *clickup.Date `json:"due_date"`
+	Subtasks  []subtaskInfo `json:"subtasks,omitempty"`
 }
 
 type taskWithExtras struct {
@@ -38,6 +40,7 @@ type taskWithExtras struct {
 
 type viewOptions struct {
 	taskIDs   []string
+	recursive bool
 	jsonFlags cmdutil.JSONFlags
 }
 
@@ -69,6 +72,9 @@ output (--json, --jq, or --template) and returns an array of tasks.`,
   # Output as JSON (includes subtasks with IDs, dates, and statuses)
   clickup task view 86a3xrwkp --json
 
+  # View with recursive subtasks (fetches all descendants)
+  clickup task view 86a3xrwkp --recursive --json
+
   # Bulk fetch multiple tasks as JSON array
   clickup task view 86abc1 86abc2 86abc3 --json
 
@@ -88,6 +94,7 @@ output (--json, --jq, or --template) and returns an array of tasks.`,
 		},
 	}
 
+	cmd.Flags().BoolVar(&opts.recursive, "recursive", false, "Recursively fetch all descendant subtasks")
 	cmdutil.AddJSONFlags(cmd, &opts.jsonFlags)
 
 	return cmd
@@ -159,14 +166,19 @@ func runView(f *cmdutil.Factory, opts *viewOptions) error {
 		}
 	}
 
+	subtasks := extras.Subtasks
+	if opts.recursive && len(subtasks) > 0 {
+		fetchSubtasksRecursive(ctx, client, subtasks, ios)
+	}
+
 	if opts.jsonFlags.WantsJSON() {
 		return opts.jsonFlags.OutputJSON(ios.Out, struct {
 			*clickup.Task
 			Subtasks []subtaskInfo `json:"subtasks"`
-		}{task, extras.Subtasks})
+		}{task, subtasks})
 	}
 
-	return printTaskView(f, task, extras.Subtasks)
+	return printTaskView(f, task, subtasks)
 }
 
 // runViewBulk fetches multiple tasks concurrently with bounded parallelism.
@@ -247,6 +259,9 @@ func runViewBulk(f *cmdutil.Factory, opts *viewOptions, rawIDs []string) error {
 			fmt.Fprintf(ios.ErrOut, "%s failed to fetch %s: %v\n", cs.Red("✗"), r.ID, r.Err)
 			errCount++
 			continue
+		}
+		if opts.recursive && len(r.Subtasks) > 0 {
+			fetchSubtasksRecursive(ctx, client, r.Subtasks, ios)
 		}
 		output = append(output, taskOutput{r.Task, r.Subtasks})
 	}
@@ -505,6 +520,53 @@ func printTaskView(f *cmdutil.Factory, task *clickup.Task, subtasks []subtaskInf
 	fmt.Fprintf(out, "  %s  clickup task view %s --json\n", cs.Gray("JSON:"), id)
 
 	return nil
+}
+
+// fetchSubtasksRecursive walks a slice of subtasks, fetching each one's children
+// concurrently and recursing until the tree is fully expanded.
+func fetchSubtasksRecursive(ctx context.Context, client *api.Client, subtasks []subtaskInfo, ios *iostreams.IOStreams) {
+	if len(subtasks) == 0 {
+		return
+	}
+
+	cs := ios.ColorScheme()
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, 10)
+	var mu sync.Mutex
+	var withChildren []*subtaskInfo
+
+	for i := range subtasks {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			var extras taskWithExtras
+			req, err := client.Clickup.NewRequest("GET", fmt.Sprintf("task/%s/?include_subtasks=true", subtasks[idx].ID), nil)
+			if err != nil {
+				fmt.Fprintf(ios.ErrOut, "%s failed to fetch subtasks for %s: %v\n", cs.Yellow("!"), subtasks[idx].ID, err)
+				return
+			}
+			if _, err := client.Clickup.Do(ctx, req, &extras); err != nil {
+				fmt.Fprintf(ios.ErrOut, "%s failed to fetch subtasks for %s: %v\n", cs.Yellow("!"), subtasks[idx].ID, err)
+				return
+			}
+			if len(extras.Subtasks) > 0 {
+				subtasks[idx].Subtasks = extras.Subtasks
+				mu.Lock()
+				withChildren = append(withChildren, &subtasks[idx])
+				mu.Unlock()
+			}
+		}(i)
+	}
+
+	wg.Wait()
+
+	// Recurse into children that themselves have subtasks.
+	for _, st := range withChildren {
+		fetchSubtasksRecursive(ctx, client, st.Subtasks, ios)
+	}
 }
 
 // findTaskViaPR detects the current branch's PR URL and searches task descriptions

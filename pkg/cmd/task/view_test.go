@@ -117,3 +117,77 @@ func TestViewCommand_WithSubtasks(t *testing.T) {
 	assert.Contains(t, out, "Subtask 1")
 	assert.Contains(t, out, "Subtask 2")
 }
+
+func TestViewCommand_RecursiveSubtasks(t *testing.T) {
+	tf := testutil.NewTestFactory(t)
+
+	parentJSON := `{
+		"id": "parent1",
+		"name": "Parent task",
+		"status": {"status": "open", "color": "#d3d3d3"},
+		"priority": null,
+		"creator": {"id": 1, "username": "isaac"},
+		"assignees": [],
+		"tags": [],
+		"url": "https://app.clickup.com/t/parent1",
+		"date_created": "1700000000000",
+		"date_updated": "1700100000000",
+		"subtasks": [
+			{"id": "sub1", "name": "Subtask 1", "status": {"status": "done"}, "assignees": []},
+			{"id": "sub2", "name": "Subtask 2", "status": {"status": "open"}, "assignees": []}
+		]
+	}`
+
+	// sub1 has a grandchild; sub2 has no children.
+	sub1JSON := `{
+		"id": "sub1",
+		"name": "Subtask 1",
+		"status": {"status": "done"},
+		"subtasks": [
+			{"id": "grand1", "name": "Grandchild 1", "status": {"status": "open"}, "assignees": []}
+		]
+	}`
+	sub2JSON := `{
+		"id": "sub2",
+		"name": "Subtask 2",
+		"status": {"status": "open"},
+		"subtasks": []
+	}`
+	grand1JSON := `{
+		"id": "grand1",
+		"name": "Grandchild 1",
+		"status": {"status": "open"},
+		"subtasks": []
+	}`
+
+	tf.HandleFunc("task/parent1", taskHandler(parentJSON))
+	tf.HandleFunc("task/parent1/", taskHandler(parentJSON))
+	tf.HandleFunc("task/sub1/", taskHandler(sub1JSON))
+	tf.HandleFunc("task/sub2/", taskHandler(sub2JSON))
+	tf.HandleFunc("task/grand1/", taskHandler(grand1JSON))
+
+	cmd := NewCmdView(tf.Factory)
+	err := testutil.RunCommand(t, cmd, "parent1", "--recursive", "--json")
+	require.NoError(t, err)
+
+	out := tf.OutBuf.String()
+	var parsed map[string]interface{}
+	require.NoError(t, json.Unmarshal([]byte(out), &parsed))
+
+	// Check subtasks exist.
+	subtasks, ok := parsed["subtasks"].([]interface{})
+	require.True(t, ok)
+	require.Len(t, subtasks, 2)
+
+	// sub1 should have a nested subtask (grandchild).
+	sub1 := subtasks[0].(map[string]interface{})
+	assert.Equal(t, "sub1", sub1["id"])
+	grandchildren, ok := sub1["subtasks"].([]interface{})
+	require.True(t, ok)
+	require.Len(t, grandchildren, 1)
+	assert.Equal(t, "grand1", grandchildren[0].(map[string]interface{})["id"])
+
+	// sub2 should have no nested subtasks (empty or nil).
+	sub2 := subtasks[1].(map[string]interface{})
+	assert.Equal(t, "sub2", sub2["id"])
+}
