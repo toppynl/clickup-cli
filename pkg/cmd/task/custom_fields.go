@@ -62,16 +62,22 @@ func parseFieldValue(field *clickup.CustomField, rawValue string) (interface{}, 
 		return v, nil
 
 	case "users":
-		// Expect comma-separated user IDs.
-		ids := strings.Split(rawValue, ",")
-		var users []map[string]interface{}
-		for _, id := range ids {
-			id = strings.TrimSpace(id)
-			if id != "" {
-				users = append(users, map[string]interface{}{"id": id})
+		// Expect comma-separated integer user IDs. ClickUp v2 wants
+		// {"value": {"add": [id, ...]}} with bare integer IDs.
+		parts := strings.Split(rawValue, ",")
+		var ids []int
+		for _, p := range parts {
+			p = strings.TrimSpace(p)
+			if p == "" {
+				continue
 			}
+			id, err := strconv.Atoi(p)
+			if err != nil {
+				return nil, fmt.Errorf("invalid user ID %q for field %q: %w", p, field.Name, err)
+			}
+			ids = append(ids, id)
 		}
-		return users, nil
+		return map[string]interface{}{"add": ids}, nil
 
 	case "tasks":
 		// Expect comma-separated task IDs.

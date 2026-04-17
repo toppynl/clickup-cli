@@ -208,10 +208,16 @@ func TestParseFieldValue(t *testing.T) {
 			name:     "users comma-separated",
 			field:    &clickup.CustomField{Name: "Assignees", Type: "users"},
 			rawValue: "123, 456",
-			want: []map[string]interface{}{
-				{"id": "123"},
-				{"id": "456"},
+			want: map[string]interface{}{
+				"add": []int{123, 456},
 			},
+		},
+		{
+			name:      "users invalid id",
+			field:     &clickup.CustomField{Name: "Assignees", Type: "users"},
+			rawValue:  "abc",
+			wantErr:   true,
+			errSubstr: "invalid user ID",
 		},
 		{
 			name:     "tasks comma-separated",
