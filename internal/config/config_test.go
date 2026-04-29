@@ -52,6 +52,7 @@ func TestConfigFile(t *testing.T) {
 
 func TestLoad_NoFile(t *testing.T) {
 	setConfigDir(t)
+	t.Setenv("CLICKUP_WORKSPACE_ID", "")
 
 	cfg, err := Load()
 	if err != nil {
@@ -73,8 +74,39 @@ func TestLoad_NoFile(t *testing.T) {
 	}
 }
 
+func TestLoad_WorkspaceEnvOverride(t *testing.T) {
+	setConfigDir(t)
+	t.Setenv("CLICKUP_WORKSPACE_ID", "workspace_from_env")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() returned error: %v", err)
+	}
+	if cfg.Workspace != "workspace_from_env" {
+		t.Errorf("Workspace = %q, want %q", cfg.Workspace, "workspace_from_env")
+	}
+}
+
+func TestLoad_WorkspaceEnvOverridesFile(t *testing.T) {
+	dir := setConfigDir(t)
+	t.Setenv("CLICKUP_WORKSPACE_ID", "env_workspace")
+
+	if err := os.WriteFile(filepath.Join(dir, "config.yml"), []byte("workspace: \"file_workspace\"\n"), 0o644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() returned error: %v", err)
+	}
+	if cfg.Workspace != "env_workspace" {
+		t.Errorf("Workspace = %q, want %q", cfg.Workspace, "env_workspace")
+	}
+}
+
 func TestSaveAndLoad(t *testing.T) {
 	setConfigDir(t)
+	t.Setenv("CLICKUP_WORKSPACE_ID", "")
 
 	original := &Config{
 		Workspace:    "team123",
@@ -270,6 +302,7 @@ func TestSetDirectoryDefault(t *testing.T) {
 
 func TestSaveAndLoadWithDirectoryDefaults(t *testing.T) {
 	setConfigDir(t)
+	t.Setenv("CLICKUP_WORKSPACE_ID", "")
 
 	original := &Config{
 		Workspace: "team1",
