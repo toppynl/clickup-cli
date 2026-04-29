@@ -42,6 +42,8 @@ func ConfigFile() string {
 }
 
 // Load reads the config from disk, returning defaults if the file doesn't exist.
+// Environment variables take precedence over file values:
+//   - CLICKUP_WORKSPACE_ID overrides workspace
 func Load() (*Config, error) {
 	cfg := &Config{
 		Prompt:  "enabled",
@@ -49,16 +51,19 @@ func Load() (*Config, error) {
 	}
 
 	data, err := os.ReadFile(ConfigFile())
-	if err != nil {
-		if os.IsNotExist(err) {
-			return cfg, nil
-		}
+	if err != nil && !os.IsNotExist(err) {
 		return nil, err
+	}
+	if err == nil {
+		if err := yaml.Unmarshal(data, cfg); err != nil {
+			return nil, err
+		}
 	}
 
-	if err := yaml.Unmarshal(data, cfg); err != nil {
-		return nil, err
+	if v := os.Getenv("CLICKUP_WORKSPACE_ID"); v != "" {
+		cfg.Workspace = v
 	}
+
 	return cfg, nil
 }
 
