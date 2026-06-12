@@ -144,6 +144,8 @@ type PutV2SpaceSpaceID200Response struct {
 // PutV2TeamTeamIDTimeEntriesTimerIDRequest — resolved from spec $ref chain.
 type PutV2TeamTeamIDTimeEntriesTimerIDRequest struct {
 	Name string `json:"name"`
+	TagBg string `json:"tag_bg"`
+	TagFg string `json:"tag_fg"`
 }
 
 // GetV2FolderFolderIDView200Response — codegen could not resolve; using any.

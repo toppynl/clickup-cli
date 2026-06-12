@@ -461,6 +461,17 @@ func CreateTeamView(ctx context.Context, client *api.Client, teamId string, req 
 	return &resp, nil
 }
 
+// CreateThreadedComment — Create Threaded Comment
+// POST /comment/%s/reply
+func CreateThreadedComment(ctx context.Context, client *api.Client, commentId string, req *clickupv2.CreateThreadedCommentJSONRequest) (*clickupv2.CreateThreadedCommentJSONResponse, error) {
+	var resp clickupv2.CreateThreadedCommentJSONResponse
+	path := fmt.Sprintf("comment/%s/reply", commentId)
+	if err := do(ctx, client, "POST", path, req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
 // CreateUserGroup — Create Group
 // POST /team/%s/group
 func CreateUserGroup(ctx context.Context, client *api.Client, teamId string, req *clickupv2.CreateUserGroupJSONRequest) (*clickupv2.CreateUserGroupJSONResponse, error) {
